@@ -449,8 +449,10 @@ void pocl_tce_compile_kernel(_cl_command_node *Command, cl_kernel Kernel,
     Device = Command->device;
 
   POCL_LOCK(Dev->tce_compile_lock);
+  // TODO
   int Error = pocl_llvm_generate_workgroup_function(
-      Command->device_i, Device, Kernel, Command, Specialize);
+      Command->device_i, Device, Kernel,
+      &Command->command.run.pc, Specialize, SpecSuffix);
 
   if (Error) {
     POCL_UNLOCK(Dev->tce_compile_lock);
@@ -468,7 +470,7 @@ void pocl_tce_compile_kernel(_cl_command_node *Command, cl_kernel Kernel,
 
   char CacheDir[POCL_FILENAME_LENGTH];
   pocl_cache_kernel_cachedir_path(CacheDir, Kernel->program, Command->device_i,
-                                  Kernel, "", Command, 1);
+                                  Kernel, NULL, "");
   RunCommand->device_data = strdup(CacheDir);
 
   if (Dev->isNewKernel(RunCommand)) {

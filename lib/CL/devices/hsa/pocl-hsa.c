@@ -1341,8 +1341,12 @@ pocl_hsa_compile_kernel_hsail (_cl_command_node *cmd, cl_kernel kernel,
 
   POCL_LOCK (d->pocl_hsa_compilation_lock);
 
+  // TODO gen spec suffix
   int error = pocl_llvm_generate_workgroup_function (cmd->device_i, device,
-                                                     kernel, cmd, specialize);
+                                                     kernel,
+                                                     &cmd->command.run.pc,
+                                                     specialize,
+                                                     spec_suffix);
   if (error)
     {
       POCL_MSG_PRINT_GENERAL ("HSA: pocl_llvm_generate_workgroup_function()"

@@ -785,7 +785,7 @@ load_or_generate_kernel (cl_kernel kernel, cl_device_id device,
 
   /* Generate the parallel bitcode file linked with the kernel library */
   int error = pocl_llvm_generate_workgroup_function (device_i, device, kernel,
-                                                     command, specialized);
+                                                     cmd, 0);
   if (error)
     {
       POCL_MSG_PRINT_GENERAL ("pocl_llvm_generate_workgroup_function() failed"
@@ -794,8 +794,7 @@ load_or_generate_kernel (cl_kernel kernel, cl_device_id device,
     }
 
   char bc_filename[POCL_FILENAME_LENGTH];
-  pocl_cache_work_group_function_path (bc_filename, kernel->program, device_i,
-                                       kernel, command, specialized);
+  pocl_cache_work_group_function_path (bc_filename, kernel->program, device_i, kernel, NULL);
 
   char ptx_filename[POCL_FILENAME_LENGTH];
   strcpy (ptx_filename, bc_filename);
@@ -851,8 +850,8 @@ void
 pocl_cuda_compile_kernel (_cl_command_node *cmd, cl_kernel kernel,
                           cl_device_id device, int specialize)
 {
-  load_or_generate_kernel (kernel, device, 0, cmd->command.run.device_i, cmd,
-                           specialize);
+  load_or_generate_kernel (kernel, device, 0, cmd->command.run.device_i,
+                           &cmd->command.run.pc);
 }
 
 void
@@ -870,8 +869,8 @@ pocl_cuda_submit_kernel (CUstream stream, _cl_command_node *cmd,
     (pc.global_offset[0] || pc.global_offset[1] || pc.global_offset[2]);
 
   /* Get kernel function */
-  pocl_cuda_kernel_data_t *kdata = load_or_generate_kernel (
-      kernel, device, has_offsets, run.device_i, cmd, 1);
+  pocl_cuda_kernel_data_t *kdata
+      = load_or_generate_kernel (kernel, device, has_offsets, run.device_i, &pc);
   CUmodule module = has_offsets ? kdata->module_offsets : kdata->module;
   CUfunction function = has_offsets ? kdata->kernel_offsets : kdata->kernel;
 
