@@ -25,7 +25,7 @@ steps:
 
 ---
 kind: pipeline
-name: arm64_ub1804
+name: arm64_ub1804_llvm6
 
 platform:
   os: linux
@@ -52,7 +52,7 @@ steps:
 
 ---
 kind: pipeline
-name: arm32_ub1804
+name: arm32_ub1804_llvm6
 
 platform:
   os: linux
