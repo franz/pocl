@@ -273,17 +273,6 @@ static kernel_run_command *pocl_tbb_prepare_kernel(void *data,
   return (run_cmd);
 }
 
-/* Note: Using a double linked list is probably not necessary any more. */
-static _cl_command_node *check_cmd_queue_for_device() {
-  _cl_command_node *cmd;
-  DL_FOREACH(scheduler.work_queue, cmd) {
-    DL_DELETE(scheduler.work_queue, cmd)
-    return cmd; // return first cmd
-  }
-
-  return NULL;
-}
-
 static void tbb_exec_command(kernel_run_command *run_cmd) {
   /* Note: Grain size variation could be allowed for each dimension
    * individually. */
@@ -367,8 +356,9 @@ RETRY:
   do_exit = scheduler.meta_thread_shutdown_requested;
 
   /* execute a command if available */
-  cmd = check_cmd_queue_for_device();
+  cmd = scheduler.work_queue;
   if (cmd) {
+    DL_DELETE(scheduler.work_queue, cmd);
     POCL_FAST_UNLOCK(scheduler.wq_lock_fast);
 
     assert(pocl_command_is_ready(cmd->event));
