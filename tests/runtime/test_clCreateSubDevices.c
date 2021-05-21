@@ -136,19 +136,16 @@ int main(int argc, char **argv)
   err = clGetDeviceInfo(rootdev, CL_DEVICE_MAX_COMPUTE_UNITS,
     sizeof(max_cus), &max_cus, NULL);
   CHECK_OPENCL_ERROR_IN("CL_DEVICE_MAX_COMPUTE_UNITS");
-  if (max_cus < 2)
-    {
-      printf("This test requires a cl device with at least 2 compute units"
-             " (a dual-core or better CPU)\n");
-      return 1;
-    }
 
   err = clGetDeviceInfo(rootdev, CL_DEVICE_PARTITION_MAX_SUB_DEVICES,
     sizeof(max_subs), &max_subs, NULL);
   CHECK_OPENCL_ERROR_IN("CL_DEVICE_PARTITION_MAX_SUB_DEVICES");
 
-  // test fails without possible sub-devices, e.g. with basic pocl device
-  TEST_ASSERT(max_subs > 1);
+  // don't fail if we don't have any subdevice support, just return
+  if ((max_subs < 2) || (max_cus < 2)) {
+    printf ("The current OpenCL device doesn't support any subdevices.\n");
+    return 0;
+  }
 
   cl_device_partition_property *dev_pt;
   size_t dev_pt_size;
