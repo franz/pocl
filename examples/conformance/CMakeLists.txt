@@ -122,8 +122,24 @@ add_test(NAME "${TS_NAME}_buffers_map_write"
 add_test(NAME "${TS_NAME}_commonfns"
          COMMAND "${TS_BUILDDIR}/commonfns/test_commonfns" )
 
+# this has all compiler tests except one:
+# compiler_defines_for_extensions is DISABLED because of SPIR:
+# FAIL: Extension cl_khr_spir is not in the list of approved Khronos Group extensions!
 add_test(NAME "${TS_NAME}_compiler"
-         COMMAND "${TS_BUILDDIR}/compiler/test_compiler"
+         COMMAND "${TS_BUILDDIR}/compiler/test_compiler"  load_program_source	load_multistring_source	load_two_kernel_source
+         load_null_terminated_source load_null_terminated_multi_line_source load_null_terminated_partial_multi_line_source
+         load_discreet_length_source get_program_source get_program_build_info get_program_info large_compile async_build
+         options_build_optimizations options_build_macro options_build_macro_existence options_include_directory
+         options_denorm_cache preprocessor_define_udef preprocessor_include	preprocessor_line_error	preprocessor_pragma
+         image_macro simple_compile_only simple_static_compile_only	simple_extern_compile_only simple_compile_with_callback
+         simple_embedded_header_compile simple_link_only two_file_regular_variable_access	two_file_regular_struct_access
+         two_file_regular_function_access simple_link_with_callback	simple_embedded_header_link	execute_after_simple_compile_and_link
+         execute_after_simple_compile_and_link_no_device_info execute_after_simple_compile_and_link_with_defines
+         execute_after_simple_compile_and_link_with_callbacks	execute_after_simple_library_with_link execute_after_two_file_link
+         execute_after_embedded_header_link	execute_after_included_header_link execute_after_serialize_reload_object
+         execute_after_serialize_reload_library simple_library_only simple_library_with_callback simple_library_with_link
+         two_file_link multi_file_libraries	multiple_files multiple_libraries	multiple_files_multiple_libraries
+         multiple_embedded_headers program_binary_type compile_and_link_status_options_log
          WORKING_DIRECTORY "${TS_BASEDIR}/src/${TS_NAME}/test_conformance/compiler")
 
 add_test(NAME "${TS_NAME}_computeinfo"
@@ -1618,6 +1634,7 @@ add_test(NAME "${TS_NAME}_basic_micro_memory"
 
 # compiler_defines_for_extensions is DISABLED because of SPIR:
 # FAIL: Extension cl_khr_spir is not in the list of approved Khronos Group extensions!
+# also multiple compilation tests are disabled b/c they mainly just slow down testsuite runs
 add_test(NAME "${TS_NAME}_compiler_micro"
          COMMAND "${TS_BUILDDIR}/compiler/test_compiler" load_program_source  load_multistring_source  load_two_kernel_source  load_null_terminated_source  load_null_terminated_multi_line_source  load_null_terminated_partial_multi_line_source  load_discreet_length_source  get_program_source  get_program_build_info  get_program_info   async_build  options_build_optimizations  options_build_macro  options_build_macro_existence  options_include_directory  options_denorm_cache  preprocessor_define_udef  preprocessor_include  preprocessor_line_error  preprocessor_pragma  image_macro  simple_compile_only  simple_static_compile_only  simple_extern_compile_only  simple_compile_with_callback  simple_embedded_header_compile  simple_link_only  two_file_regular_variable_access  two_file_regular_struct_access  two_file_regular_function_access  simple_link_with_callback  simple_embedded_header_link  execute_after_simple_compile_and_link  execute_after_simple_compile_and_link_no_device_info  execute_after_simple_compile_and_link_with_defines  execute_after_simple_compile_and_link_with_callbacks  execute_after_simple_library_with_link  execute_after_two_file_link  execute_after_embedded_header_link  execute_after_included_header_link  execute_after_serialize_reload_object  execute_after_serialize_reload_library  simple_library_only  simple_library_with_callback  simple_library_with_link  two_file_link     multiple_files_multiple_libraries  program_binary_type  compile_and_link_status_options_log
          WORKING_DIRECTORY "${TS_BASEDIR}/src/${TS_NAME}/test_conformance/compiler")
