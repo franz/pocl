@@ -83,8 +83,13 @@ POP_COMPILER_DIAGS
 #include <memory>
 #include <regex>
 #include <string>
+#include <sstream>
 #include <thread>
 #include <vector>
+
+#ifdef HAVE_LLVM_SPIRV_LIB
+#include <LLVMSPIRVLib/LLVMSPIRVLib.h>
+#endif
 
 #include "linker.h"
 
@@ -729,69 +734,14 @@ public:
 // max captured bytes in output of 'llvm-spirv'
 #define MAX_OUTPUT_BYTES 65536
 
-// shared code for calling llvm-spirv
-static int convertBCorSPV(char *InputPath,
-                          const char *InputContent,
-                          uint64_t InputSize,
-                          std::string *BuildLog,
-                          int useIntelExts,
-                          int reverse, // add "-r"
-                          char *OutputPath,
-                          char **OutContent,
-                          uint64_t *OutSize) {
-  char HiddenOutputPath[POCL_MAX_PATHNAME_LENGTH];
-  char HiddenInputPath[POCL_MAX_PATHNAME_LENGTH];
-
-  char CapturedOutput[MAX_OUTPUT_BYTES];
-  size_t CapturedBytes = MAX_OUTPUT_BYTES;
-  std::vector<std::string> CompilationArgs;
-  std::vector<char *> CompilationArgs2;
-
-  int r = -1;
-
-  bool keepOutputPath = false;
-  if (OutputPath) {
-    keepOutputPath = true;
-    if (OutputPath[0]) {
-      strncpy(HiddenOutputPath, OutputPath, POCL_MAX_PATHNAME_LENGTH);
-    } else {
-      pocl_cache_tempname(HiddenOutputPath, ".spv", NULL);
-      strncpy(OutputPath, HiddenOutputPath, POCL_MAX_PATHNAME_LENGTH);
-    }
-  } else {
-    assert(OutContent);
-    pocl_cache_tempname(HiddenOutputPath, ".spv", NULL);
-  }
-
-  bool keepInputPath = false;
-  if (InputPath) {
-    keepInputPath = true;
-    if (InputPath[0]) {
-      strncpy(HiddenInputPath, InputPath, POCL_MAX_PATHNAME_LENGTH);
-    } else {
-      pocl_cache_tempname(HiddenInputPath, ".bc", NULL);
-      strncpy(InputPath, HiddenInputPath, POCL_MAX_FILENAME_LENGTH);
-    }
-  } else {
-    assert(InputContent);
-    pocl_cache_tempname(HiddenInputPath, ".bc", NULL);
-  }
-
-  if (InputContent && InputSize) {
-    r = pocl_write_file(HiddenInputPath, InputContent, InputSize, 0);
-    if (r != 0) {
-      BuildLog->append("failed to write input file for llvm-spirv\n");
-      goto FINISHED;
-    }
-  }
-
 //   Specify list of allowed/disallowed extensions
 #define ALLOW_INTEL_EXTS                                                       \
   "--spirv-ext=+SPV_INTEL_subgroups,+SPV_INTEL_usm_storage_classes,+SPV_"      \
   "INTEL_arbitrary_precision_integers,+SPV_INTEL_arbitrary_precision_fixed_"   \
   "point,+SPV_INTEL_arbitrary_precision_floating_point,+SPV_INTEL_kernel_"     \
   "attributes,+SPV_KHR_no_integer_wrap_decoration,+SPV_EXT_shader_atomic_"     \
-  "float_add,+SPV_INTEL_function_pointers"
+  "float_add,+SPV_EXT_shader_atomic_float_min_max,+SPV_INTEL_function_pointers" \
+  ",+SPV_EXT_shader_atomic_float16_add"
   /*
   possibly useful:
     "+SPV_INTEL_unstructured_loop_controls,"
@@ -834,6 +784,168 @@ static int convertBCorSPV(char *InputPath,
 
 #define ALLOW_EXTS "--spirv-ext=+SPV_KHR_no_integer_wrap_decoration"
 
+// shared code for calling llvm-spirv
+static int convertBCorSPV(char *InputPath,
+                          const char *InputContent, // LLVM bitcode as string
+                          uint64_t InputSize,
+//                          void* InputLLVMIR, // LLVM::Module object
+                          std::string *BuildLog,
+                          int useIntelExts,
+                          int reverse, // add "-r"
+                          char *OutputPath,
+                          char **OutContent,
+                          uint64_t *OutSize) {
+  char HiddenOutputPath[POCL_MAX_PATHNAME_LENGTH];
+  char HiddenInputPath[POCL_MAX_PATHNAME_LENGTH];
+  char CapturedOutput[MAX_OUTPUT_BYTES];
+  size_t CapturedBytes = MAX_OUTPUT_BYTES;
+  std::vector<std::string> CompilationArgs;
+  std::vector<char *> CompilationArgs2;
+  llvm::Module *Mod = nullptr;
+  char *Content = nullptr; uint64_t ContentSize = 0;
+  llvm::LLVMContext LLVMCtx;
+
+#ifdef HAVE_LLVM_SPIRV_LIB
+  std::string Errors;
+  std::map<SPIRV::ExtensionID, std::optional<bool>> EnabledExts;
+  EnabledExts[SPIRV::ExtensionID::SPV_INTEL_subgroups] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_INTEL_usm_storage_classes] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_INTEL_arbitrary_precision_integers] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_INTEL_arbitrary_precision_fixed_point] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_INTEL_arbitrary_precision_floating_point] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_INTEL_kernel_attributes] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_KHR_no_integer_wrap_decoration] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float_add] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float_min_max] = true;
+  EnabledExts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float16_add] = true;
+  SPIRV::TranslatorOpts Opts(SPIRV::VersionNumber::SPIRV_1_2, EnabledExts);
+#endif
+  int r = -1;
+
+  bool keepOutputPath = false;
+  if (OutputPath) {
+    keepOutputPath = true;
+    if (OutputPath[0]) {
+      strncpy(HiddenOutputPath, OutputPath, POCL_MAX_PATHNAME_LENGTH);
+    } else {
+      pocl_cache_tempname(HiddenOutputPath, (reverse ? ".bc" : ".spv" ), NULL);
+      strncpy(OutputPath, HiddenOutputPath, POCL_MAX_PATHNAME_LENGTH);
+    }
+  } else {
+    assert(OutContent);
+    pocl_cache_tempname(HiddenOutputPath, (reverse ? ".bc" : ".spv" ), NULL);
+  }
+
+  bool keepInputPath = false;
+  if (InputPath) {
+    keepInputPath = true;
+    if (InputPath[0]) {
+      strncpy(HiddenInputPath, InputPath, POCL_MAX_PATHNAME_LENGTH);
+    } else {
+      pocl_cache_tempname(HiddenInputPath, (reverse ? ".spv" : ".bc"), NULL);
+      strncpy(InputPath, HiddenInputPath, POCL_MAX_FILENAME_LENGTH);
+    }
+  } else {
+    assert(InputContent);
+    pocl_cache_tempname(HiddenInputPath, (reverse ? ".spv" : ".bc"), NULL);
+  }
+
+#ifdef USE_LLVM_SPIRV_LIB
+  if (reverse) {
+    // SPIRV to BC
+    std::string InputS;
+    if (InputContent && InputSize) {
+      InputS.append(InputContent, InputSize);
+    } else {
+      r = pocl_read_file(InputPath, &Content, &ContentSize);
+      if (r != 0) {
+        BuildLog->append("ConvertBC2SPIRV: failed to read input file:\n");
+        BuildLog->append(InputPath);
+        goto FINISHED;
+      }
+      InputS.append(Content, ContentSize);
+      free(Content);
+      Content = nullptr;
+      ContentSize = 0;
+    }
+
+    std::stringstream InputSS(InputS);
+    Mod = nullptr;
+
+    // TODO maybe use context from program ?
+    if (!readSpirv(LLVMCtx, Opts, InputSS, Mod, Errors)) {
+      BuildLog->append("LLVMSPIRVLib: Write failed with errors:\n");
+      BuildLog->append(Errors.c_str());
+      goto FINISHED;
+    }
+    std::string OutputBC;
+    writeModuleIRtoString(Mod, OutputBC);
+    assert(OutputBC.size() > 20);
+    Content = (char*)malloc(OutputBC.size());
+    assert(Content);
+    memcpy(Content, OutputBC.data(), OutputBC.size());
+    ContentSize = OutputBC.size();
+
+  } else {
+    // BC to SPIRV
+    std::string OutputSpirv;
+    std::stringstream SS(OutputSpirv);
+//    if (InputLLVMIR) {
+//      Mod = (llvm::Module *)InputLLVMIR;
+//    } else {
+      if (InputContent && InputSize) {
+        Mod = parseModuleIRMem(InputContent, InputSize, &LLVMCtx);
+      } else {
+        assert(InputPath);
+        Mod = parseModuleIR(InputPath, &LLVMCtx);
+      }
+//    }
+    if (Mod == nullptr) {
+      BuildLog->append("ConvertBC2SPIRV: failed to parse input module\n");
+      goto FINISHED;
+    }
+
+    // TODO maybe use context from program ?
+    if (!regularizeLlvmForSpirv(Mod, Errors)) {
+      BuildLog->append("LLVMSPIRVLib: Regularize failed with errors:\n");
+      BuildLog->append(Errors.c_str());
+      goto FINISHED;
+    }
+    if (!writeSpirv(Mod, Opts, SS, Errors)) {
+      BuildLog->append("LLVMSPIRVLib: Write failed with errors:\n");
+      BuildLog->append(Errors.c_str());
+      goto FINISHED;
+    }
+    SS.flush();
+    assert(OutputSpirv.size() > 20);
+    Content = (char*)malloc(OutputSpirv.size());
+    assert(Content);
+    memcpy(Content, OutputSpirv.data(), OutputSpirv.size());
+    ContentSize = OutputSpirv.size();
+  }
+
+  if (OutContent && OutSize) {
+    *OutContent = Content;
+    *OutSize = ContentSize;
+    r = 0;
+  } else {
+    // write to output file
+    r = pocl_write_file(HiddenOutputPath, Content, ContentSize, 0);
+    if (r != 0) {
+      BuildLog->append("failed to write output file from LLVMSPIRVLib\n");
+      goto FINISHED;
+    }
+    free(Content); Content = nullptr;
+  }
+#else
+
+  if (InputContent && InputSize) {
+    r = pocl_write_file(HiddenInputPath, InputContent, InputSize, 0);
+    if (r != 0) {
+      BuildLog->append("failed to write input file for llvm-spirv\n");
+      goto FINISHED;
+    }
+  }
   // generate program.spv
   CompilationArgs.push_back(LLVM_SPIRV);
 #if (LLVM_MAJOR == 15) || (LLVM_MAJOR == 16)
@@ -875,6 +987,7 @@ static int convertBCorSPV(char *InputPath,
   }
 
   r = 0;
+#endif
 
 FINISHED:
   if (pocl_get_bool_option("POCL_LEAVE_KERNEL_COMPILER_TEMP_FILES", 0) != 0) {
