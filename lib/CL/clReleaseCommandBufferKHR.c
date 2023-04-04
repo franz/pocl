@@ -25,6 +25,8 @@
 #include "pocl_mem_management.h"
 #include "pocl_util.h"
 
+#include <alloca.h>
+
 CL_API_ENTRY cl_int CL_API_CALL
 POname (clReleaseCommandBufferKHR) (cl_command_buffer_khr command_buffer)
     CL_API_SUFFIX__VERSION_1_2
@@ -49,11 +51,11 @@ POname (clReleaseCommandBufferKHR) (cl_command_buffer_khr command_buffer)
 
       unsigned num_freed = 0;
 
-      for (int i = 0; i < command_buffer->num_queues; ++i)
+      for (cl_uint i = 0; i < command_buffer->num_queues; ++i)
         {
           cl_command_queue q = command_buffer->queues[i];
           int is_freed = 0;
-          for (int j = 0; j < num_freed; ++j)
+          for (cl_uint j = 0; j < num_freed; ++j)
             {
               if (freed_devs[j] == q->device)
                 is_freed = 1;

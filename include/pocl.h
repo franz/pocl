@@ -173,6 +173,14 @@ typedef struct
   void(CL_CALLBACK *user_func) (void *);
 } _cl_command_native;
 
+// clCommandHostFunc
+typedef struct
+{
+  void *user_data;
+  void (CL_CALLBACK *user_func) (void *);
+} _cl_command_host_func;
+
+
 // clEnqueueReadBuffer
 typedef struct
 {
@@ -391,11 +399,35 @@ typedef struct
 
 typedef struct
 {
+  const void *__restrict__ src;
+  void *__restrict__ dst;
+  size_t region[3];
+  size_t src_origin[3];
+  size_t dst_origin[3];
+  size_t src_row_pitch;
+  size_t src_slice_pitch;
+  size_t dst_row_pitch;
+  size_t dst_slice_pitch;
+} _cl_command_svm_cpy_rect;
+
+typedef struct
+{
   void *__restrict__ svm_ptr;
   size_t size;
   void *__restrict__ pattern;
   size_t pattern_size;
 } _cl_command_svm_fill;
+
+typedef struct
+{
+  void *__restrict__ svm_ptr;
+  void *__restrict__ pattern;
+  size_t region[3];
+  size_t origin[3];
+  size_t row_pitch;
+  size_t slice_pitch;
+  size_t pattern_size;
+} _cl_command_svm_fill_rect;
 
 typedef struct
 {
@@ -408,6 +440,7 @@ typedef union
 {
   _cl_command_run run;
   _cl_command_native native;
+  _cl_command_host_func host_func;
   _cl_command_replay replay;
 
   _cl_command_read read;
@@ -434,7 +467,9 @@ typedef union
   _cl_command_svm_map svm_map;
   _cl_command_svm_unmap svm_unmap;
   _cl_command_svm_cpy svm_memcpy;
+  _cl_command_svm_cpy_rect svm_memcpy_rect;
   _cl_command_svm_fill svm_fill;
+  _cl_command_svm_fill_rect svm_fill_rect;
   _cl_command_svm_migrate svm_migrate;
 
   _cl_command_svm_memadvise mem_advise;

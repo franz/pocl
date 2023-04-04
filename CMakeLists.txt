@@ -1223,6 +1223,9 @@ set(HOST_DEVICE_EXTENSIONS "cl_khr_byte_addressable_store cl_khr_global_int32_ba
 cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics \
 cl_khr_local_int32_extended_atomics cl_khr_3d_image_writes cl_khr_command_buffer")
 
+set(HOST_DEVICE_EXTENSIONS "${HOST_DEVICE_EXTENSIONS} cl_pocl_svm_rect cl_pocl_command_buffer_svm \
+  cl_pocl_command_buffer_host_buffer cl_pocl_command_buffer_host_exec")
+
 if(LLVM_VERSION VERSION_GREATER_EQUAL 14.0)
   set(HOST_DEVICE_EXTENSIONS "${HOST_DEVICE_EXTENSIONS} cl_khr_subgroups cl_intel_unified_shared_memory")
 endif()

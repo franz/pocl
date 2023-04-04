@@ -89,6 +89,33 @@ void pocl_driver_svm_fill (cl_device_id dev, void *__restrict__ svm_ptr,
                            size_t size, void *__restrict__ pattern,
                            size_t pattern_size);
 
+POCL_EXPORT
+void pocl_driver_svm_copy (cl_device_id dev,
+                           void *__restrict__ dst,
+                           const void *__restrict__ src,
+                           size_t size);
+
+POCL_EXPORT
+void pocl_driver_svm_fill_rect (cl_device_id dev,
+                                void *__restrict__ svm_ptr,
+                                const size_t *origin,
+                                const size_t *region,
+                                size_t row_pitch,
+                                size_t slice_pitch,
+                                void *__restrict__ pattern,
+                                size_t pattern_size);
+
+POCL_EXPORT
+void pocl_driver_svm_copy_rect (cl_device_id dev,
+                               void *__restrict__ dst_ptr,
+                               const void *__restrict__ src_ptr,
+                               const size_t *__restrict__ const dst_origin,
+                               const size_t *__restrict__ const src_origin,
+                               const size_t *__restrict__ const region,
+                               size_t dst_row_pitch,
+                               size_t dst_slice_pitch,
+                               size_t src_row_pitch,
+                               size_t src_slice_pitch);
   POCL_EXPORT
   int pocl_driver_build_source (cl_program program, cl_uint device_i,
                                 cl_uint num_input_headers,
