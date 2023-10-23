@@ -78,6 +78,8 @@ using namespace llvm;
 #include <string>
 #include <map>
 
+
+
 llvm::Module *parseModuleIR(const char *path, llvm::LLVMContext *c) {
   SMDiagnostic Err;
   return parseIRFile(path, Err, *c).release();
@@ -376,7 +378,71 @@ std::string CurrentWgMethod;
 
 static bool LLVMInitialized = false;
 static bool LLVMOptionsInitialized = false;
-static bool LLVMUseGlobalContext = true;
+
+#define MAX_GLOBAL_CTX 256
+// unfortunately this cannot be a std::vector due to static variable uninitialization order
+static PoclLLVMContextData *GlobalLLVMContexts[MAX_GLOBAL_CTX];
+static unsigned NumLLVMContexts = 0;
+static unsigned CurrentLLVMContext = 0;
+
+
+PoclLLVMContextData::PoclLLVMContextData() {
+  Context = new llvm::LLVMContext();
+  assert(Context);
+#if (CLANG_MAJOR == 15) || (CLANG_MAJOR == 16)
+#ifdef LLVM_OPAQUE_POINTERS
+  Context->setOpaquePointers(true);
+#else
+  Context->setOpaquePointers(false);
+#endif
+#endif
+  number_of_IRs = 0;
+  poclDiagString = new std::string;
+  poclDiagStream = new llvm::raw_string_ostream(*poclDiagString);
+  poclDiagPrinter =
+      new DiagnosticPrinterRawOStream(*poclDiagStream);
+
+  kernelLibraryMap = new kernelLibraryMapTy;
+  assert(kernelLibraryMap);
+  POCL_INIT_LOCK(Lock);
+
+  LLVMContextSetDiagnosticHandler(wrap(Context),
+                                  (LLVMDiagnosticHandler)diagHandler,
+                                  (void *)poclDiagPrinter);
+  Refcount = 1;
+}
+
+PoclLLVMContextData::~PoclLLVMContextData() {
+  if (Refcount > 0) {
+    POCL_MSG_ERR ("PoclLLVMContextData: nonzero refcount\n");
+    return;
+  }
+
+  // now, zero references
+  if (number_of_IRs > 0) {
+    POCL_MSG_ERR("still have references to IRs - can't release LLVM context !\n");
+    return;
+  }
+
+  delete poclDiagPrinter;
+  delete poclDiagStream;
+  delete poclDiagString;
+
+  assert(kernelLibraryMap);
+  // void cleanKernelLibrary(cl_context ctx) {
+  for (auto i = kernelLibraryMap->begin(),
+            e = kernelLibraryMap->end();
+       i != e; ++i) {
+    delete (llvm::Module *)i->second;
+  }
+  kernelLibraryMap->clear();
+  delete kernelLibraryMap;
+  POCL_DESTROY_LOCK(Lock);
+
+  delete Context;
+  std::memset(this, 0, sizeof(PoclLLVMContextData));
+}
+
 /* must be called with kernelCompilerLock locked */
 void InitializeLLVM() {
 
@@ -403,12 +469,29 @@ void InitializeLLVM() {
     initializeInstrumentation(Registry);
 #endif
     initializeTarget(Registry);
+
+    int NumContexts = pocl_get_bool_option("POCL_LLVM_GLOBAL_CONTEXTS", 0);
+    if (NumContexts > MAX_GLOBAL_CTX) {
+      POCL_MSG_WARN("Limiting Max global contexts to %u\n", MAX_GLOBAL_CTX);
+      NumLLVMContexts = NumContexts = MAX_GLOBAL_CTX;
+    }
+    if (NumContexts > 0) {
+      NumLLVMContexts = NumContexts;
+    }
+#ifdef ENABLE_HOST_CPU_DEVICES
+    if (NumContexts <= 0) {
+      NumLLVMContexts = 4;
+    }
+#else
+    if (NumContexts <= 0) {
+      NumLLVMContexts = 1;
+    }
+#endif
+    for (unsigned i = 0; i < NumLLVMContexts; ++i) {
+      GlobalLLVMContexts[i] = nullptr;
+    }
   }
 
-  if (pocl_get_bool_option("POCL_LLVM_GLOBAL_CONTEXT", 1) == 1)
-    LLVMUseGlobalContext = true;
-  else
-    LLVMUseGlobalContext = false;
 
   // Set the options only once. TODO: fix it so that each
   // device can reset their own options. Now one cannot compile
@@ -483,11 +566,6 @@ void InitializeLLVM() {
       assert(O && "could not find LLVM option 'debug'");
       O->addOccurrence(1, StringRef("debug"), StringRef("true"), false);
     }
-#if LLVM_MAJOR == 9
-    O = opts["unroll-threshold"];
-    assert(O && "could not find LLVM option 'unroll-threshold'");
-    O->addOccurrence(1, StringRef("unroll-threshold"), StringRef("1"), false);
-#endif
   }
 }
 
@@ -502,92 +580,50 @@ void UnInitializeLLVM() {
   LLVMInitialized = false;
 }
 
-static PoclLLVMContextData *GlobalLLVMContext = nullptr;
-static unsigned GlobalLLVMContextRefcount = 0;
-
 void pocl_llvm_create_context(cl_context ctx) {
 
-  if (LLVMUseGlobalContext && GlobalLLVMContext != nullptr) {
-    ctx->llvm_context_data = GlobalLLVMContext;
-    ++GlobalLLVMContextRefcount;
-    return;
-  }
-
-  PoclLLVMContextData *data = new PoclLLVMContextData;
-  assert(data);
-
-  data->Context = new llvm::LLVMContext();
-  assert(data->Context);
-#if (CLANG_MAJOR == 15) || (CLANG_MAJOR == 16)
-#ifdef LLVM_OPAQUE_POINTERS
-  data->Context->setOpaquePointers(true);
-#else
-  data->Context->setOpaquePointers(false);
-#endif
-#endif
-  data->number_of_IRs = 0;
-  data->poclDiagString = new std::string;
-  data->poclDiagStream = new llvm::raw_string_ostream(*data->poclDiagString);
-  data->poclDiagPrinter =
-      new DiagnosticPrinterRawOStream(*data->poclDiagStream);
-
-  data->kernelLibraryMap = new kernelLibraryMapTy;
-  assert(data->kernelLibraryMap);
-  POCL_INIT_LOCK(data->Lock);
-
-  LLVMContextSetDiagnosticHandler(wrap(data->Context),
-                                  (LLVMDiagnosticHandler)diagHandler,
-                                  (void *)data->poclDiagPrinter);
   assert(ctx->llvm_context_data == nullptr);
-  ctx->llvm_context_data = data;
-  if (LLVMUseGlobalContext) {
-    GlobalLLVMContext = data;
-    ++GlobalLLVMContextRefcount;
-  }
 
-  POCL_MSG_PRINT_LLVM("Created context %" PRId64 " (%p)\n", ctx->id, ctx);
+  PoclLLVMContextData *PLCData = GlobalLLVMContexts[CurrentLLVMContext];
+  if (PLCData == nullptr) {
+    PLCData = new PoclLLVMContextData;
+    assert(PLCData);
+    GlobalLLVMContexts[CurrentLLVMContext] = PLCData;
+  } else {
+    ++PLCData->Refcount;
+  }
+  ctx->llvm_context_data = PLCData;
+
+  ++CurrentLLVMContext;
+  if (CurrentLLVMContext >= NumLLVMContexts)\
+    CurrentLLVMContext = 0;
+
+  POCL_MSG_PRINT_LLVM("Created context %" PRId64 " (%p) || CUR: %u\n",
+                      ctx->id, ctx, CurrentLLVMContext);
 }
 
 void pocl_llvm_release_context(cl_context ctx) {
 
   POCL_MSG_PRINT_LLVM("releasing LLVM context\n");
 
-  PoclLLVMContextData *data = (PoclLLVMContextData *)ctx->llvm_context_data;
+  PoclLLVMContextData *PLCData = (PoclLLVMContextData *)ctx->llvm_context_data;
+  ctx->llvm_context_data = nullptr;
   // this can happen if clContextCreate runs into an error
-  if (data == NULL)
+  if (PLCData == nullptr)
     return;
 
-  if (LLVMUseGlobalContext) {
-    --GlobalLLVMContextRefcount;
-    if (GlobalLLVMContextRefcount > 0)
-      return;
+  --PLCData->Refcount;
+  if (PLCData->Refcount > 0)
+    return;
+
+  for (unsigned i = 0; i < NumLLVMContexts; ++i) {
+    if (GlobalLLVMContexts[i] == PLCData) {
+      GlobalLLVMContexts[i] = nullptr;
+      break;
+    }
   }
 
-  if (data->number_of_IRs > 0) {
-    POCL_ABORT("still have references to IRs - can't release LLVM context !\n");
-  }
-
-  delete data->poclDiagPrinter;
-  delete data->poclDiagStream;
-  delete data->poclDiagString;
-
-  assert(data->kernelLibraryMap);
-  // void cleanKernelLibrary(cl_context ctx) {
-  for (auto i = data->kernelLibraryMap->begin(),
-            e = data->kernelLibraryMap->end();
-       i != e; ++i) {
-    delete (llvm::Module *)i->second;
-  }
-  data->kernelLibraryMap->clear();
-  delete data->kernelLibraryMap;
-  POCL_DESTROY_LOCK(data->Lock);
-
-  delete data->Context;
-  delete data;
-  ctx->llvm_context_data = nullptr;
-  if (LLVMUseGlobalContext) {
-    GlobalLLVMContext = nullptr;
-  }
+  delete PLCData;
 }
 
 #define POCL_METADATA_ROOT "pocl_meta"

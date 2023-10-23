@@ -120,6 +120,10 @@ struct PoclLLVMContextData
   llvm::raw_string_ostream *poclDiagStream;
   llvm::DiagnosticPrinterRawOStream *poclDiagPrinter;
   kernelLibraryMapTy *kernelLibraryMap;
+  unsigned Refcount;
+
+  PoclLLVMContextData();
+  ~PoclLLVMContextData();
 };
 
 #ifdef __GNUC__
