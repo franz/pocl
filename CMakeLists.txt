@@ -227,6 +227,8 @@ option(ENABLE_LEVEL0 "Experimental and incomplete driver that uses the Level Zer
 
 option(ENABLE_TBB_DEVICE "Enable the Intel TBB device driver." OFF)
 
+option(ENABLE_SYNAPSE_DEVICE "Enable the Synapse API device driver." OFF)
+
 option(ENABLE_HOST_CPU_DEVICES "Add host CPUs as OpenCL devices (cpu & cpu-minimal)." ON)
 
 option(ENABLE_HOST_CPU_DEVICES_OPENMP "Enables OpenMP support for Host CPU devices (cpu driver only, cpu-minimal driver remains single-threaded)" OFF)
@@ -1778,6 +1780,22 @@ endif()
 
 ##########################################################
 
+if (ENABLE_SYNAPSE_DEVICE)
+
+  find_library(SYNAPSE_LIB NAMES "Synapse" PATHS "/usr/lib/habanalabs" REQUIRED)
+  find_file(SYNAPSE_HEADER NAMES "synapse_api.h" PATH_SUFFIXES "habanalabs")
+  if (NOT SYNAPSE_LIB OR NOT SYNAPSE_HEADER)
+    message(FATAL_ERROR "Could not find level-zero via pkg-config, trying to find it directly")
+  else()
+    message(STATUS "Found Synapse library: '${SYNAPSE_LIB}' and header: '${SYNAPSE_HEADER}'")
+    set(OCL_DRIVERS "${OCL_DRIVERS} synapse")
+    get_filename_component(SYNAPSE_INC_DIR "${SYNAPSE_HEADER}" DIRECTORY)
+    #set(OCL_TARGETS "${OCL_TARGETS} synapse")
+  endif()
+endif()
+
+##########################################################
+
 if(ENABLE_CUDA)
 
   if(NOT "${LLVM_ALL_TARGETS}" MATCHES "NVPTX")
@@ -1985,6 +2003,7 @@ set(BUILD_ICD ${ENABLE_ICD})
 set(BUILD_HSA ${ENABLE_HSA})
 set(BUILD_VULKAN ${ENABLE_VULKAN})
 set(BUILD_LEVEL0 ${ENABLE_LEVEL0})
+set(BUILD_SYNAPSE ${ENABLE_SYNAPSE_DEVICE})
 set(TCE_AVAILABLE ${ENABLE_TCE})
 set(TCEMC_AVAILABLE ${ENABLE_TCEMC})
 
@@ -2330,7 +2349,9 @@ MESSAGE(STATUS "ENABLE_HSA: ${ENABLE_HSA}")
 MESSAGE(STATUS "ENABLE_ALMAIF_DEVICE: ${ENABLE_ALMAIF_DEVICE}")
 MESSAGE(STATUS "ENABLE_CUDA: ${ENABLE_CUDA}")
 MESSAGE(STATUS "ENABLE_CUDNN: ${ENABLE_CUDNN}")
+MESSAGE(STATUS "ENABLE_LEVEL0: ${ENABLE_LEVEL0}")
 MESSAGE(STATUS "ENABLE_HOST_CPU_DEVICES: ${ENABLE_HOST_CPU_DEVICES}")
+MESSAGE(STATUS "ENABLE_SYNAPSE_DEVICE: ${ENABLE_SYNAPSE_DEVICE}")
 MESSAGE(STATUS "ENABLE_VULKAN: ${ENABLE_VULKAN}")
 MESSAGE(STATUS "ENABLE_ASAN (address sanitizer): ${ENABLE_ASAN}")
 MESSAGE(STATUS "ENABLE_LSAN (leak sanitizer): ${ENABLE_LSAN}")
@@ -2349,7 +2370,6 @@ MESSAGE(STATUS "ENABLE_RDMA: ${ENABLE_RDMA}")
 MESSAGE(STATUS "ENABLE_CL_GET_GL_CONTEXT: ${ENABLE_CL_GET_GL_CONTEXT}")
 MESSAGE(STATUS "ENABLE_OPENGL_INTEROP: ${ENABLE_OPENGL_INTEROP}")
 MESSAGE(STATUS "ENABLE_EGL_INTEROP: ${ENABLE_EGL_INTEROP}")
-
 MESSAGE(STATUS "ENABLE_SLEEF: ${ENABLE_SLEEF}")
 MESSAGE(STATUS "ENABLE_SPIRV: ${ENABLE_SPIRV}")
 MESSAGE(STATUS "ENABLE_VALGRIND: ${ENABLE_VALGRIND}")

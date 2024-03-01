@@ -14,6 +14,7 @@
 #cmakedefine BUILD_REMOTE_SERVER
 #cmakedefine BUILD_REMOTE_CLIENT
 #cmakedefine BUILD_PROXY
+#cmakedefine BUILD_SYNAPSE
 
 #define BUILDDIR "@BUILDDIR@"
 

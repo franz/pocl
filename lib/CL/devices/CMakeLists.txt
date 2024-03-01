@@ -65,6 +65,15 @@ if(BUILD_ALMAIF)
     "$<TARGET_OBJECTS:pocl-devices-almaif>")
 endif()
 
+if(BUILD_SYNAPSE)
+  add_subdirectory("synapse")
+  set(POCL_DEVICES_OBJS "${POCL_DEVICES_OBJS}"
+    "$<TARGET_OBJECTS:pocl-devices-synapse>")
+  if(NOT ENABLE_LOADABLE_DRIVERS)
+    list(APPEND POCL_DEVICES_LINK_LIST ${SYNAPSE_LIB})
+  endif()
+endif()
+
 if(BUILD_TBB)
   add_subdirectory("tbb")
   set(POCL_DEVICES_OBJS "${POCL_DEVICES_OBJS}"

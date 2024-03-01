@@ -100,6 +100,7 @@ extern "C" {
 #define POCL_DEBUG_FLAG_LEVEL0 0x4000
 #define POCL_DEBUG_FLAG_REMOTE 0x8000
 #define POCL_DEBUG_FLAG_STREAM 0x10000
+#define POCL_DEBUG_FLAG_SYNAPSE 0x20000
 
 #define POCL_DEBUG_FLAG_VULKAN 0x80000
 
@@ -251,6 +252,8 @@ POCL_EXPORT
   POCL_MSG_PRINT_INFO_F (PROXY, "", __VA_ARGS__)
 #define POCL_MSG_PRINT_LEVEL0(...)                                            \
   POCL_MSG_PRINT_INFO_F (LEVEL0, "", __VA_ARGS__)
+#define POCL_MSG_PRINT_SYNAPSE(...)                                           \
+  POCL_MSG_PRINT_INFO_F (SYNAPSE, "", __VA_ARGS__)
 #define POCL_MSG_PRINT_VULKAN2(errcode, ...)                                  \
   POCL_MSG_PRINT_INFO_F (VULKAN, errcode, __VA_ARGS__)
 #define POCL_MSG_PRINT_VULKAN(...)                                            \
@@ -340,6 +343,11 @@ POCL_EXPORT
     }                                                                         \
   while (0)
 #define POCL_MSG_PRINT_LEVEL0(...)                                            \
+  do                                                                          \
+    {                                                                         \
+    }                                                                         \
+  while (0)
+#define POCL_MSG_PRINT_SYNAPSE(...)                                           \
   do                                                                          \
     {                                                                         \
     }                                                                         \
