@@ -1582,6 +1582,7 @@ struct _cl_program {
      names it contains. */
   size_t num_builtin_kernels;
   char **builtin_kernel_names;
+  void **builtin_kernel_descriptors;
   char *concated_builtin_names;
 
   /* Poclcc binary format.  */

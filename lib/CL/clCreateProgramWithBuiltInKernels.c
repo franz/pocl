@@ -42,6 +42,7 @@ CL_API_SUFFIX__VERSION_1_2
   char *kernel_names_copy = NULL;
   cl_program program = NULL;
   char **builtin_names = NULL;
+  void **builtin_descs = NULL;
   unsigned num_kernels = 0;
   unsigned i, j, supported_devices = 0;
   char *save_ptr;
@@ -55,6 +56,7 @@ CL_API_SUFFIX__VERSION_1_2
   POCL_GOTO_ERROR_COND ((kernel_names == NULL), CL_INVALID_VALUE);
 
   builtin_names = (char **)calloc (MAX_KERNELS, sizeof (char *));
+  builtin_descs = (void **)calloc (MAX_KERNELS, sizeof (void *));
   POCL_GOTO_ERROR_COND ((builtin_names == NULL), CL_OUT_OF_HOST_MEMORY);
   kernel_names_copy = strdup (kernel_names);
   token = strtok_r (kernel_names_copy, ";", &save_ptr);
@@ -90,6 +92,7 @@ CL_API_SUFFIX__VERSION_1_2
 
   program->num_builtin_kernels = num_kernels;
   program->builtin_kernel_names = builtin_names;
+  program->builtin_kernel_descriptors = builtin_descs;
   program->concated_builtin_names = strdup (kernel_names);
 
   if (errcode_ret != NULL)

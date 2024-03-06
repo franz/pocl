@@ -345,12 +345,12 @@ BIKD::BIKD(BuiltinKernelId KernelIdentifier, const char *KernelName,
 
 static cl_int pocl_get_builtin_kernel_metadata(cl_device_id dev,
                                                const char *kernel_name,
+                                               void *descriptor,
                                                pocl_kernel_metadata_t *target) {
 
-  BIKD *Desc = nullptr;
-  for (size_t i = 0; i < BIKERNELS; ++i) {
-    Desc = &pocl_BIDescriptors[i];
-    if (std::string(Desc->name) == kernel_name) {
+  BIKD *Desc = (BIKD *)descriptor;
+  assert(Desc);
+  assert (std::string(Desc->name) == kernel_name);
       memcpy(target, (pocl_kernel_metadata_t *)Desc,
              sizeof(pocl_kernel_metadata_t));
       target->name = strdup(Desc->name);
@@ -374,15 +374,31 @@ static cl_int pocl_get_builtin_kernel_metadata(cl_device_id dev,
         POCL_HAS_KERNEL_ARG_TYPE_NAME         |
         POCL_HAS_KERNEL_ARG_TYPE_QUALIFIER    |
         POCL_HAS_KERNEL_ARG_NAME;
-    }
-  }
   return 0;
 }
 
 int pocl_setup_builtin_metadata(cl_device_id device, cl_program program,
                                 unsigned program_device_i) {
-  if (program->builtin_kernel_names == nullptr)
+  if (program->builtin_kernel_names == nullptr) {
+    POCL_MSG_WARN("not a program with builtin kernels "
+                  "-> skipping metadata setup\n");
     return 0;
+  }
+
+  // if the dev->ops->build_builtins didn't set up BIKDs,
+  // assume the BIKDs can be found in the central BIKD database
+  assert(program->builtin_kernel_descriptors);
+  for (unsigned i = 0; i < program->num_builtin_kernels; ++i) {
+    if (program->builtin_kernel_descriptors[i] == nullptr) {
+      std::string KName(program->builtin_kernel_names[i]);
+      for (unsigned j = 0; j < BIKERNELS; ++j) {
+        if (KName == pocl_BIDescriptors[j].name) {
+          program->builtin_kernel_descriptors[i] = &pocl_BIDescriptors[j];
+          break;
+        }
+      }
+    }
+  }
 
   program->num_kernels = program->num_builtin_kernels;
   if (program->num_kernels) {
@@ -392,6 +408,7 @@ int pocl_setup_builtin_metadata(cl_device_id device, cl_program program,
     for (size_t i = 0; i < program->num_kernels; ++i) {
       pocl_get_builtin_kernel_metadata(device,
                                        program->builtin_kernel_names[i],
+                                       program->builtin_kernel_descriptors[i],
                                        &program->kernel_meta[i]);
       program->kernel_meta[i].data =
           (void**)calloc(program->num_devices, sizeof(void*));

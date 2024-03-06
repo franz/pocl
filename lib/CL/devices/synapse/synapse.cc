@@ -48,7 +48,7 @@
 #include <thread>
 #include <mutex>
 #include <map>
-
+#include <random>
 #include <synapse_api.h>
 
 #include "synapse_kernel.hh"
@@ -56,11 +56,13 @@
 static cl_bool DevAvailable = CL_TRUE;
 static cl_bool DevUNAvailable = CL_FALSE;
 
+using BIKDMap = std::map<std::string, TensorBIKD *>;
+
 struct SynapseDeviceData {
   std::string Params;
   std::string SupportedList;
 
-  std::set<BIKD *> SupportedKernels;
+  BIKDMap SupportedKernels;
 
   // wakeup driver thread
   pocl_cond_t WakeupCond;
@@ -74,8 +76,13 @@ struct SynapseDeviceData {
   bool ExitRequested = false;
 
   //synStreamHandle Dev2HostStream = 0, Host2DevStream = 0, ComputeStream = 0;
-  synStreamHandle DefaultStream = 0;
-  synDeviceId DevID = 0;
+  synStreamHandle DefaultStream = nullptr;
+  synDeviceId DevID = UINT32_MAX;
+  synDeviceType DevType = synDeviceTypeInvalid;
+
+  std::random_device RandomDev;
+  std::mt19937 GenRand{RandomDev()};
+  std::uniform_int_distribution<uint64_t> dist{UINT64_MAX/8, UINT64_MAX};
 };
 
 struct SynapseCond {
@@ -142,8 +149,10 @@ void pocl_synapse_init_device_ops(struct pocl_device_ops *ops) {
   ops->init_queue = pocl_synapse_init_queue;
   ops->free_queue = pocl_synapse_free_queue;
 
-  //ops->build_builtin = pocl_driver_build_opencl_builtins;
-  //ops->free_program = pocl_driver_free_program;
+  ops->build_builtin = pocl_synapse_build_builtin;
+  ops->free_program = pocl_synapse_free_program;
+  ops->create_kernel = pocl_synapse_create_kernel;
+  ops->free_kernel = pocl_synapse_free_kernel;
 }
 
 static uint32_t DeviceCountsByType[synDeviceTypeSize] = {0};
@@ -329,12 +338,14 @@ cl_int pocl_synapse_init(unsigned j, cl_device_id dev, const char *parameters) {
     }
 
     bool Found = false;
-    for (size_t i = 0; i < BIKERNELS; ++i) {
-      if (pocl_BIDescriptors[i].KernelId == KernelId) {
+    for (size_t i = 0; i < PoCL_Tensor_BIDescriptorNum; ++i) {
+      if (PoCL_Tensor_BIDescriptors[i].KernelId == KernelId) {
         if (D->SupportedList.size() > 0)
           D->SupportedList += ";";
-        D->SupportedList += pocl_BIDescriptors[i].name;
-        D->SupportedKernels.insert(&pocl_BIDescriptors[i]);
+        D->SupportedList += PoCL_Tensor_BIDescriptors[i].name;
+        D->SupportedKernels.insert(std::make_pair(
+                                     PoCL_Tensor_BIDescriptors[i].name,
+                                     &PoCL_Tensor_BIDescriptors[i]));
         Found = true;
         break;
       }
@@ -824,7 +835,79 @@ pocl_synapse_free_mapping_ptr (void *data, pocl_mem_identifier *mem_id,
 }
 
 void pocl_synapse_run(void *data, _cl_command_node *cmd) {
+  SynapseDeviceData *D = (SynapseDeviceData *)data;
 
+  cl_kernel Kernel = cmd->command.run.kernel;
+  struct pocl_context *PoclContext = &cmd->command.run.pc;
+
+  SynapseKernel *K = (SynapseKernel *)Kernel->data[cmd->program_device_i];
+  assert(K);
+  K->launch(D->DefaultStream, D->DevID, Kernel, PoclContext, cmd);
+}
+
+int pocl_synapse_build_builtin(cl_program program, cl_uint device_i) {
+
+  cl_device_id Dev = program->devices[device_i];
+  SynapseDeviceData *D = (SynapseDeviceData *)Dev->data;
+
+  BIKDMap *ProgramKernels = new BIKDMap;
+  assert(ProgramKernels);
+  program->data[device_i] = (void*)ProgramKernels;
+
+  for (unsigned i = 0; i < program->num_builtin_kernels; ++i) {
+    std::string KName(program->builtin_kernel_names[i]);
+    if (D->SupportedKernels.find(KName) != D->SupportedKernels.end()) {
+      ProgramKernels->emplace(KName, D->SupportedKernels[KName]);
+      program->builtin_kernel_descriptors[i] = D->SupportedKernels[KName];
+    } else {
+      POCL_MSG_ERR("Unknown builtin kernel %s\n", KName.c_str());
+      return CL_BUILD_PROGRAM_FAILURE;
+    }
+  }
+  return CL_BUILD_SUCCESS;
+}
+
+int pocl_synapse_free_program(cl_device_id device, cl_program program,
+                              unsigned program_device_i) {
+  BIKDMap *ProgramKernels =
+      (BIKDMap *)program->data[program_device_i];
+
+  if (ProgramKernels)
+    delete ProgramKernels;
+
+  program->data[program_device_i] = nullptr;
+  return CL_SUCCESS;
+}
+
+
+int pocl_synapse_create_kernel (cl_device_id device, cl_program program,
+                                cl_kernel kernel, unsigned program_device_i) {
+  cl_device_id Dev = program->devices[program_device_i];
+  SynapseDeviceData *D = (SynapseDeviceData *)Dev->data;
+
+  BIKDMap *ProgramKernels =
+      (BIKDMap *)program->data[program_device_i];
+
+  TensorBIKD *BIKernel = ProgramKernels->at(kernel->name);
+
+  SynapseKernel *K = new SynapseKernel(D->DevID, D->DevType, BIKernel);
+  if (!K->init()) {
+    POCL_MSG_ERR("Synapse: kernel initialization failed!\n");
+    delete K;
+    return CL_BUILD_PROGRAM_FAILURE;
+  }
+  kernel->data[program_device_i] = (void*)K;
+  return CL_SUCCESS;
+}
+
+int pocl_synapse_free_kernel (cl_device_id device, cl_program program,
+                              cl_kernel kernel, unsigned program_device_i) {
+
+  SynapseKernel *K = (SynapseKernel *)kernel->data[program_device_i];
+  if (K)
+    delete K;
+  kernel->data[program_device_i] = nullptr;
+  return CL_SUCCESS;
 }
 
 //*************************************************************************

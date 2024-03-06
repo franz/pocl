@@ -30,83 +30,48 @@
 #include "pocl_util.h"
 #include "pocl_file_util.h"
 
-/*
-struct SynapseKernel {
-  SynapseKernel(synDeviceId D, synDeviceType DT, BIKD *BIKernel)
-    : Dev(D), DevType(DT), Kernel(BIKernel) {}
-  ~SynapseKernel();
-  bool init();
-  bool launch(const synStreamHandle Stream);
+#include <algorithm>
+#include <atomic>
 
-private:
-  synDeviceType DevType = synDeviceTypeInvalid;
-  synDeviceId Dev = (synDeviceId)(-1);
+TensorBIKD::TensorBIKD(BuiltinKernelId KernelId,
+                       const char *KernelName,
+                       const char *GUID,
+                       const std::vector<TensorBIArg> &ArgInfos)
+  : BIKD(KernelId, KernelName, {}, 0) {
 
-  synGraphHandle Graph = nullptr;
-  // compiled graph
-  synRecipeHandle Recipe = nullptr;
-  // Workspace Memory
-  uint64_t WorkspaceMem = 0;
-  uint64_t WorkspaceSize = 0;
+  num_args = ArgInfos.size();
+  arg_info = new pocl_argument_info[num_args];
+  data = NULL;
+  num_locals = 0;
 
-  std::map<std::string, synTensor> TensorMap;
-  std::vector<synTensor> InputTensors;
-  std::vector<synTensor> OutputTensors;
-  std::vector<uint8_t> ScalarArgs;
-  std::map<unsigned, size_t> ScalarArgOffsets;
-  std::map<unsigned, size_t> ScalarArgSizes;
-  std::vector<const char*> InputLayouts;
-  std::vector<const char*> OutputLayouts;
-  std::string BuildLog;
-  std::string Name;
-  std::string GUID;
-  std::vector<synLaunchTensorInfo> launchTensorInfo;
+  unsigned i = 0;
+  for (auto &ArgInfo : ArgInfos) {
+    arg_info[i] = ArgInfo;
+    arg_info[i].name = strdup(ArgInfo.name);
+    arg_info[i].type_name = strdup(ArgInfo.type_name);
+    arg_info[i].access_qualifier = ArgInfo.access_qualifier;
+    arg_info[i].address_qualifier = ArgInfo.address_qualifier;
+    arg_info[i].type = ArgInfo.type;
+    arg_info[i].type_qualifier = ArgInfo.type_qualifier;
+    arg_info[i].type_size = ArgInfo.type_size;
+    ++i;
+  }
+}
 
-  BIKD *Kernel = nullptr;
 
-  bool convertArgs();
-  bool convertTensorArg(struct pocl_argument_info &Arg, unsigned ArgN);
-  bool convertPODArg(struct pocl_argument_info &Arg, unsigned ArgN);
-  bool setupActualArgs(struct pocl_argument *Args);
+// list of Tensor Builtin Kernels
+TensorBIKD PoCL_Tensor_BIDescriptors[PoCL_Tensor_BIDescriptorNum] =
+{
+
 };
 
-*/
+static std::string generateUniqueString(const std::string &input)
+{
+  static std::atomic<unsigned long> serialNumber{1};
 
-static synDataType getSynArgType(const char* Typename) {
-  std::string ArgType(Typename);
-  if (ArgType == "char") {
-    return syn_type_int8;
-  }
-  if (ArgType == "uchar") {
-    return syn_type_uint8;
-  }
-  if (ArgType == "short") {
-    return syn_type_int16;
-  }
-  if (ArgType == "ushort") {
-    return syn_type_uint16;
-  }
-  if (ArgType == "int32") {
-    return syn_type_int32;
-  }
-  if (ArgType == "uint32") {
-    return syn_type_uint32;
-  }
-  if (ArgType == "int64") {
-    return syn_type_int64;
-  }
-  if (ArgType == "uint64") {
-    return syn_type_uint64;
-  }
-  if (ArgType == "float") {
-    return syn_type_float;
-  }
-  if (ArgType == "half") {
-    return syn_type_fp16;
-  }
-  // invalid type
-  return syn_type_na;
+  return (input + "_" + std::to_string(serialNumber++));
 }
+
 
 static inline uint64_t
 align64(uint64_t value, unsigned alignment)
@@ -126,6 +91,7 @@ bool SynapseKernel::init() {
   // GUID is the "operator" name. Could be a builtin operator, or if not found
   // in the list of builtin operators, will be forwarded to plugin
   GUID = BIKernel->GUID;
+
   // convert OpenCL arguments to Synapse arguments
   if (!convertArgs())
     return false;
@@ -149,10 +115,11 @@ bool SynapseKernel::init() {
   // compile the graph into recipe
   char BuildLogStorage[POCL_MAX_PATHNAME_LENGTH];
   char *BuildLogTmp = nullptr;
-  if (pocl_mk_tempname(BuildLogStorage, "/tmp", ".log", NULL) == 0)
+  if (pocl_mk_tempname(BuildLogStorage, "/tmp", ".log", NULL) == 0) {
     BuildLogTmp = BuildLogStorage;
-  // TODO unique recipe name!
-  err = synGraphCompile(&Recipe, Graph, BIKernel->name, BuildLogTmp);
+  }
+  std::string UniqueRecipeName = generateUniqueString(BIKernel->name);
+  err = synGraphCompile(&Recipe, Graph, UniqueRecipeName.c_str(), BuildLogTmp);
   if (BuildLogTmp) {
     char *Content = nullptr;
     uint64_t Size = 0;
@@ -196,9 +163,6 @@ bool SynapseKernel::setupActualArgs(struct _cl_command_node *Node
   pocl_kernel_metadata_t *Meta = Kernel->meta;
   struct pocl_context *PoclContext = &Node->command.run.pc;
 
-  unsigned CurrentScalarArg = 0;
-  unsigned CurrentPointerArg = 0;
-
   for (unsigned ArgI = 0; ArgI < Meta->num_args; ++ArgI) {
     Arg = &(Node->command.run.arguments[ArgI]);
     if (ARG_IS_LOCAL(Meta->arg_info[ArgI]))
@@ -206,18 +170,17 @@ bool SynapseKernel::setupActualArgs(struct _cl_command_node *Node
       POCL_ABORT_UNIMPLEMENTED("Synapse: local arguments");
 
     else if (Meta->arg_info[ArgI].type == POCL_ARG_TYPE_POINTER) {
-      // It's legal to pass a NULL pointer to clSetKernelArguments. In
-      //   that case we must pass the same NULL forward to the kernel.
+      // In OpenCL, it's legal to pass a NULL pointer to clSetKernelArguments.
+      // In that case we must pass the same NULL forward to the kernel.
       if (Arg->value == NULL) {
-        POCL_ABORT_UNIMPLEMENTED("Synapse: pointer Args == NULL");
+        POCL_ABORT_UNIMPLEMENTED("Synapse: pointer Arg == NULL");
       } else {
         // doesn't support SVM pointers
         assert(Arg->is_svm == 0);
         cl_mem M = (*(cl_mem *)(Arg->value));
         pocl_mem_identifier P = M->device_ptrs[Node->device->global_mem_id];
         uint64_t DevPtr = (uint64_t)P.mem_ptr + Arg->offset;
-        // TODO
-        *(size_t *)current_arg = buffer;
+        launchTensorInfoMap[ArgI]->pTensorAddress = DevPtr;
       }
 
     } else if (Meta->arg_info[ArgI].type == POCL_ARG_TYPE_IMAGE) {
@@ -227,6 +190,7 @@ bool SynapseKernel::setupActualArgs(struct _cl_command_node *Node
       POCL_ABORT_UNIMPLEMENTED("almaif: sampler arguments");
 
     } else { // POD
+      assert(Meta->arg_info[ArgI].type == POCL_ARG_TYPE_NONE);
       void* Dst = ScalarArgs.data() + ScalarArgOffsets[ArgI];
       uint64_t Size = ScalarArgSizes[ArgI];
       assert (Arg->size <= Size);
@@ -234,95 +198,61 @@ bool SynapseKernel::setupActualArgs(struct _cl_command_node *Node
     }
   }
 
-  synStatus err = synDeviceSynchronize(D->DevID);
-  assert(err == synSuccess);
-
-  POCL_MEM_FREE(Node->command.run.device_data);
-
   return true;
 }
 
 
-bool SynapseKernel::convertTensorArg(pocl_argument_info &Arg, unsigned ArgN) {
-  synTensorDescriptor Desc;
-  std::memset(&Desc, 0, sizeof(synTensorDescriptor));
+bool SynapseKernel::convertTensorArg(const TensorBIArg &Arg, unsigned ArgN) {
 
   // name
-  std::string ArgName(Arg.name);
-  Desc.m_name = Arg.name;
+  std::string TempName(Arg.name);
+  // KernelName _ ArgName _ SequentialNumber
+  std::string UniqueTensorName = generateUniqueString(Name + "_" + TempName);
+  TensorNameMap[ArgN] = UniqueTensorName;
 
-  // data type
-  std::string ArgType(Arg.type_name);
-  Desc.m_dataType = getSynArgType(Arg.type_name);
-  if (Desc.m_dataType == syn_type_na) {
-    POCL_MSG_ERR("SynapseKernel: unrecognized data type for Arg %u: %s\n",
-                 ArgN, Arg.type_name);
-    return false;
-  }
-
-  // TODO we need to somehow get these from BIKD
-  // Tensor dimensions, for example:
-  //    unsigned inTensorSize[SYN_MAX_TENSOR_DIM]  = {inZ, inW, inH, batch};
-  //    unsigned outTensorSize[SYN_MAX_TENSOR_DIM] = {inZ, outW, outH, batch};
-  // Tensor is input/output arg
-
-  // dimensions & sizes for each dim
-  synTensorGeometry Geom;
-  Desc.m_dims = 1;
-  Geom.dims = Desc.m_dims;
-  for (unsigned j = 0; j < Desc.m_dims; ++j)
-  {
-      Desc.m_sizes[j]    =  0; // inTensorSize[j];
-      Desc.m_minSizes[j] = Desc.m_sizes[j];
-      Geom.sizes[j] = Desc.m_sizes[j];
-  }
-
-  // derive input or output from presence of "const"
-  bool TensorIsInput = (Arg.type_qualifier & CL_KERNEL_ARG_TYPE_CONST);
-
-  if (TensorIsInput) {
-    Desc.m_isInput = true;
-    Desc.m_isOutput = false;
-  } else {
-    Desc.m_isInput = false;
-    Desc.m_isOutput = true;
-  }
+  synTensorType Type = Arg.getTensorType();
+  synDataType DataType = Arg.getTensorDataType();
+  synTensorGeometry MaxGeom = Arg.getTensorMaxSizes();
 
   // create Tensor
   synStatus err = synSuccess;
   synTensor TempTensor = nullptr;
-  err = synTensorHandleCreate(&TempTensor, Graph, DATA_TENSOR, TensorName);
+  err = synTensorHandleCreate(&TempTensor, Graph,
+                              Type, UniqueTensorName.c_str());
   if (err != synSuccess) {
     POCL_MSG_ERR("SynapseKernel: failed to create Tensor for Arg %u: %s\n",
                  ArgN, Arg.name);
     return false;
   }
 
-  err = synTensorSetDeviceDataType(TempTensor, Desc.m_dataType);
-  err = synTensorSetGeometry(TempTensor, &Geom, synGeometryMaxSizes);
+  err = synTensorSetDeviceDataType(TempTensor, DataType);
+  err = synTensorSetGeometry(TempTensor, &MaxGeom, synGeometryMaxSizes);
 
   // store Tensor
   TensorMap[ArgN] = TempTensor;
-  if (TensorIsInput) {
+  // TODO can tensors be both input/output ?
+  if (Arg.Input) {
     InputTensors.push_back(TempTensor);
+    InputLayouts.push_back(Arg.DataLayout);
   } else {
+    assert(Arg.Output == true);
     OutputTensors.push_back(TempTensor);
+    OutputLayouts.push_back(Arg.DataLayout);
   }
-  synLaunchTensorInfo TempLaunchInfo;
-//  persistentTensorInfo[0].pTensorAddress = pDeviceInputA;
-//  persistentTensorInfo[0].tensorName     = "inputA";
-//  persistentTensorInfo[0].tensorType     = DATA_TENSOR;
-//  persistentTensorInfo[0].tensorId       = 0;
 
+  // fill out launch info as much as possible
+  synLaunchTensorInfo TempLaunchInfo;
   std::memset(&TempLaunchInfo, 0, sizeof(TempLaunchInfo));
-  TempLaunchInfo.tensorName = TensorName;
-  TempLaunchInfo.tensorType     = DATA_TENSOR;
+  TempLaunchInfo.tensorName     = TensorNameMap[ArgN].c_str();
+  TempLaunchInfo.tensorType     = Type;
   launchTensorInfo.push_back(TempLaunchInfo);
+  auto It = std::prev(launchTensorInfo.end());
+  launchTensorInfoMap[ArgN] = &*It;
 
   return true;
 }
 
-bool SynapseKernel::convertPODArg(struct pocl_argument_info &Arg, unsigned ArgN) {
+bool SynapseKernel::convertPODArg(const TensorBIArg &Arg, unsigned ArgN) {
   if (Arg.type_size == 0) {
     POCL_MSG_ERR("Synapse: Type size for Arg %u is zero\n", ArgN);
     return false;
@@ -330,6 +260,8 @@ bool SynapseKernel::convertPODArg(struct pocl_argument_info &Arg, unsigned ArgN)
   uint64_t Offset = ScalarArgs.size();
   uint64_t Alignment = pocl_size_ceil2_64(Arg.type_size);
   Offset = align64(Offset, Alignment);
+  uint64_t TotalSize = Offset + Arg.type_size;
+  ScalarArgs.resize(TotalSize);
   ScalarArgOffsets[ArgN] = Offset;
   ScalarArgSizes[ArgN] = Arg.type_size;
   return true;
@@ -340,7 +272,7 @@ bool SynapseKernel::convertArgs() {
 
   for (unsigned i = 0; i < BIKernel->num_args ; ++i) {
     // TODO get the type from BIKD
-    struct pocl_argument_info &Arg = BIKernel->arg_info[i];
+    const TensorBIArg &Arg = BIKernel->TensorArgInfos[i];
     if (Arg.type == POCL_ARG_TYPE_NONE) {
       if (!convertPODArg(Arg, i))
         return false;
@@ -383,12 +315,12 @@ SynapseKernel::~SynapseKernel() {
 }
 
 bool SynapseKernel::launch(const synStreamHandle Stream,
+                           synDeviceId DevID,
+                           cl_kernel Kernel,
+                           struct pocl_context *PoclContext,
                            struct _cl_command_node *Node) {
 
   struct pocl_argument *Arg;
-  cl_kernel kernel = Node->command.run.kernel;
-  pocl_kernel_metadata_t *meta = kernel->meta;
-  struct pocl_context *PoclContext = &Node->command.run.pc;
 
   if (PoclContext->num_groups[0] == 0
       || PoclContext->num_groups[1] == 0
@@ -396,10 +328,9 @@ bool SynapseKernel::launch(const synStreamHandle Stream,
     return true;
 
   setupActualArgs(Node);
-  //Associate the tensors with the device memory so compute knows where to read from / write to
-  //Schedule kernel
-  std::vector<synLaunchTensorInfo> launchTensorInfo;
 
+
+  //Schedule kernel
   synStatus err = synLaunch(Stream,
                             launchTensorInfo.data(),
                             launchTensorInfo.size(),
@@ -412,6 +343,13 @@ bool SynapseKernel::launch(const synStreamHandle Stream,
     return false;
   }
 
+  err = synDeviceSynchronize(DevID);
+  if (err != synSuccess) {
+    POCL_MSG_ERR("SynapseKernel: failed to sync after recipe launch\n");
+    return false;
+  }
+
+  POCL_MEM_FREE(Node->command.run.device_data);
 
   return true;
 }
