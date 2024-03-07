@@ -62,7 +62,14 @@ TensorBIKD::TensorBIKD(BuiltinKernelId KernelId,
 // list of Tensor Builtin Kernels
 TensorBIKD PoCL_Tensor_BIDescriptors[PoCL_Tensor_BIDescriptorNum] =
 {
-
+  TensorBIKD(
+  POCL_CDBI_ADD_I32,
+  "pocl.add.i32", // pocl kernel name
+  "add_fwd_f32", // Synapse GUID
+  {TensorBIArg("int*", "input1", nullptr, {1, 1024, 1024, 1}, true, false),
+   TensorBIArg("int*", "input2", nullptr, {1, 1024, 1024, 1}, true, false),
+   TensorBIArg("int*", "output", nullptr, {1, 1024, 1024, 1}, false, true)}
+  )
 };
 
 static std::string generateUniqueString(const std::string &input)
@@ -96,6 +103,28 @@ bool SynapseKernel::init() {
   if (!convertArgs())
     return false;
 
+  // handle zero layouts.
+  // TODO layouts might not be required or supported anymore
+  const char** InputLayoutsData = InputLayouts.data();
+  if (InputLayouts.size() == 0 ||
+      std::all_of(InputLayouts.begin(), InputLayouts.end(),
+                  [](const char* A) { return A == nullptr; }) == true)
+  {
+    InputLayoutsData = nullptr;
+  }
+  const char** OutputLayoutsData = OutputLayouts.data();
+  if (OutputLayouts.size() == 0 ||
+      std::all_of(OutputLayouts.begin(), OutputLayouts.end(),
+                  [](const char* A) { return A == nullptr; }) == true)
+  {
+    OutputLayoutsData = nullptr;
+  }
+
+  // handle zero scalars
+  void* ScalarArgsData = ScalarArgs.data();
+  if (ScalarArgs.size() == 0)
+    ScalarArgsData = nullptr;
+
   // create graph node
   // TODO figure out if ScalarArgs is only used as pointer at this time,
   // or if the pointed-to scalar data is actually read at this point.
@@ -105,12 +134,12 @@ bool SynapseKernel::init() {
                       OutputTensors.data(),
                       InputTensors.size(),
                       OutputTensors.size(),
-                      ScalarArgs.data(),
+                      ScalarArgsData,
                       ScalarArgs.size(),
                       GUID.c_str(),
                       Name.c_str(),
-                      InputLayouts.data(),
-                      OutputLayouts.data());
+                      InputLayoutsData,
+                      OutputLayoutsData);
 
   // compile the graph into recipe
   char BuildLogStorage[POCL_MAX_PATHNAME_LENGTH];
@@ -161,7 +190,6 @@ bool SynapseKernel::setupActualArgs(struct _cl_command_node *Node
   struct pocl_argument *Arg;
   cl_kernel Kernel = Node->command.run.kernel;
   pocl_kernel_metadata_t *Meta = Kernel->meta;
-  struct pocl_context *PoclContext = &Node->command.run.pc;
 
   for (unsigned ArgI = 0; ArgI < Meta->num_args; ++ArgI) {
     Arg = &(Node->command.run.arguments[ArgI]);
@@ -210,9 +238,9 @@ bool SynapseKernel::convertTensorArg(const TensorBIArg &Arg, unsigned ArgN) {
   std::string UniqueTensorName = generateUniqueString(Name + "_" + TempName);
   TensorNameMap[ArgN] = UniqueTensorName;
 
-  synTensorType Type = Arg.getTensorType();
-  synDataType DataType = Arg.getTensorDataType();
-  synTensorGeometry MaxGeom = Arg.getTensorMaxSizes();
+  synTensorType Type = Arg.TensorType;
+  synDataType DataType = Arg.TensorDataType;
+  synTensorGeometry MaxGeom = Arg.MaxGeometry;
 
   // create Tensor
   synStatus err = synSuccess;

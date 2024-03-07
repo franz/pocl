@@ -47,7 +47,7 @@ struct TensorBIArg : public BIArg
 
   // constructor for Tensor args
   TensorBIArg (const char *TypeName, const char *Name,
-               const char *Layout, std::vector<unsigned> Geometry,
+               const char *Layout, std::vector<unsigned> Geometry, // geometry = Z, W, H, batch
                bool isInput, bool isOutput, synTensorType TensorT = DATA_TENSOR
                ) : BIArg(TypeName, Name, POCL_ARG_TYPE_POINTER,
                          CL_KERNEL_ARG_ADDRESS_GLOBAL,

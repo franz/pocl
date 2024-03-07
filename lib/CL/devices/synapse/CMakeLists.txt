@@ -26,6 +26,8 @@
 set(SYNAPSE_SOURCES
                   "synapse.cc"
                   "synapse.h"
+                  "synapse_kernel.cc"
+                  "synapse_kernel.hh"
                   )
 
 if(MSVC)
@@ -33,6 +35,7 @@ if(MSVC)
 endif(MSVC)
 
 add_pocl_device_library(pocl-devices-synapse ${SYNAPSE_SOURCES})
+target_include_directories(pocl-devices-synapse PRIVATE "${SYNAPSE_INC_DIR}")
 
 if(ENABLE_LOADABLE_DRIVERS)
   target_link_libraries(pocl-devices-synapse PRIVATE ${SYNAPSE_LIB})
