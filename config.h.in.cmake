@@ -170,6 +170,8 @@
 
 #ifdef BUILD_LEVEL0
 
+#cmakedefine ENABLE_NPU
+
 #define CLANG "@CLANG@"
 
 #define LLVM_SPIRV "@LLVM_SPIRV@"
