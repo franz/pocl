@@ -54,16 +54,22 @@ endif()
 set(CXX_PROGRAMS_TO_BUILD test_device_address test_svm test_large_buf
   test_subbuffers test_compile_n_link test_dbk_matmul)
 
+if(ENABLE_NPU)
+  list(APPEND CXX_PROGRAMS_TO_BUILD test_npu test_npu_gemm32)
+endif()
+
 add_compile_options(${OPENCL_CFLAGS} -I${CMAKE_SOURCE_DIR}/include)
 
 foreach(PROG ${C_PROGRAMS_TO_BUILD})
   add_executable("${PROG}" "${PROG}.c")
+  target_compile_definitions("${PROG}" PRIVATE "SRCDIR=\"${SRCDIR}\"")
   target_link_libraries("${PROG}" ${POCLU_LINK_OPTIONS})
 endforeach()
 
 foreach(PROG ${CXX_PROGRAMS_TO_BUILD})
   set_source_files_properties( "${PROG}.cpp" PROPERTIES LANGUAGE CXX )
   add_executable("${PROG}" "${PROG}.cpp")
+  target_compile_definitions("${PROG}" PRIVATE "SRCDIR=\"${SRCDIR}\"")
   target_link_libraries("${PROG}" ${POCLU_LINK_OPTIONS})
 endforeach()
 
@@ -174,6 +180,12 @@ if(HAVE_ONNXRT)
   add_test(NAME "runtime/test_dbk_onnx_inference" COMMAND "test_dbk_onnx_inference")
 endif()
 
+if(ENABLE_NPU)
+  add_test(NAME "runtime/test_npu" COMMAND "test_npu")
+  add_test(NAME "runtime/test_npu_gemm32" COMMAND "test_npu_gemm32")
+  set(NPU_TESTS "runtime/test_npu" "runtime/test_npu_gemm32")
+endif()
+
 set_tests_properties( "runtime/clGetDeviceInfo" "runtime/clEnqueueNativeKernel"
   "runtime/clGetEventInfo" "runtime/clCreateProgramWithBinary"
   "runtime/clBuildProgram" "runtime/clFinish" "runtime/clSetEventCallback"
@@ -190,7 +202,6 @@ set_tests_properties( "runtime/clGetDeviceInfo" "runtime/clEnqueueNativeKernel"
   "runtime/test_cl_pocl_content_size" "runtime/test_deviceside_enqueue"
   "runtime/test_command_buffer" "runtime/test_command_buffer_images"
   "runtime/test_command_buffer_multi_device"
-  "runtime/test_device_address" "runtime/test_svm"
   "runtime/test_device_address" "runtime/test_svm"
   "runtime/test_compile_n_link"
   "runtime/test_subbuffers"
@@ -215,6 +226,7 @@ set_tests_properties(
   "runtime/test_svm"
   "runtime/test_large_buf"
   "runtime/test_dbk_matmul"
+  ${NPU_TESTS}
   PROPERTIES SKIP_RETURN_CODE 77)
 
 if(ENABLE_REMOTE_CLIENT AND ENABLE_REMOTE_SERVER AND ENABLE_HOST_CPU_DEVICES)
@@ -296,6 +308,7 @@ if(ENABLE_REMOTE_CLIENT AND ENABLE_REMOTE_SERVER AND ENABLE_HOST_CPU_DEVICES)
     "remote/test_command_buffer_multi_device"
     "remote/test_device_address"
     "remote/test_svm"
+    ${NPU_TESTS}
     "remote/test_queue_creation_with_hints"
     PROPERTIES SKIP_RETURN_CODE 77)
 
@@ -479,6 +492,7 @@ set_property(TEST
   "runtime/test_subbuffers"
   "runtime/test_dbk_matmul"
   "runtime/test_queue_creation_with_hints"
+  ${NPU_TESTS}
   APPEND PROPERTY LABELS "level0")
 
 if(ENABLE_LEVEL0 AND ENABLE_HOST_CPU_DEVICES)
