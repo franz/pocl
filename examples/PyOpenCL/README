@@ -2,14 +2,8 @@ Installation:
 
 $ mkdir PyOpenCL-build && cd PyOpenCL-build
 $ git clone --recursive git://github.com/inducer/pyopencl
-$ apt-get install python-pip python-virtualenv python-numpy python-mako python-dev
-
-  (or equivalent, for example:
-  curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
-  sudo python get-pip.py 
-  sudo pip install virtualenv)
-
-$ virtualenv --system-site-packages mypy
+$ apt-get install python-pip python-numpy python-mako python-dev
+$ python -m venv --system-site-packages mypy
 $ source mypy/bin/activate
 $ cd pyopencl
 $ ./configure.py

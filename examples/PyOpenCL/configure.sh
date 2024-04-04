@@ -3,7 +3,6 @@
 TS_BASEDIR="$1"
 TS_BUILDDIR="$2"
 TS_SRCDIR="$3"
-VIRTUALENV="$4"
-PYTH="$5"
+PYTH="$4"
 
-cd "${TS_BASEDIR}/src" && "${VIRTUALENV}" "--python=$PYTH" "PyOpenCL-build" && cd "${TS_SRCDIR}" && ${TS_BUILDDIR}/bin/pip3 install mako pybind11 pytest setuptools numpy && ${TS_BUILDDIR}/bin/python3 configure.py
+cd "${TS_BASEDIR}/src" && $PYTH -m venv --clear "${TS_BUILDDIR}" && cd "${TS_SRCDIR}" && ${TS_BUILDDIR}/bin/pip3 install mako pybind11 pytest setuptools numpy && ${TS_BUILDDIR}/bin/python3 configure.py
