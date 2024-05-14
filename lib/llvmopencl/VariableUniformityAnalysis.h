@@ -29,6 +29,8 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/Pass.h>
 #include <llvm/Passes/PassBuilder.h>
+#include <llvm/Analysis/TargetTransformInfoImpl.h>
+#include <llvm/CodeGen/BasicTTIImpl.h>
 
 namespace llvm {
 class Loop;
@@ -78,6 +80,38 @@ public:
   static bool isRequired() { return true; }
 };
 #endif
+
+class POCLTTIImpl : public llvm::TargetTransformInfoImplCRTPBase<POCLTTIImpl> { //llvm::TargetTransformInfoImplBase {
+//  using BaseT = llvm::TargetTransformInfoImplBase;
+  using BaseT = llvm::TargetTransformInfoImplCRTPBase<POCLTTIImpl>;
+  unsigned GenAS;
+  unsigned ConstAS;
+
+public:
+  POCLTTIImpl(const llvm::DataLayout &DL, unsigned AS) : BaseT(DL), GenAS(AS) {}
+  POCLTTIImpl(const POCLTTIImpl &Arg) = default;
+  POCLTTIImpl(POCLTTIImpl &&Arg) : BaseT(Arg.DL), GenAS(Arg.GenAS) {}
+
+  // copied from NVPTXTTIImpl
+  bool hasBranchDivergence(const llvm::Function *F = nullptr) {
+    return true;
+  }
+
+  unsigned getFlatAddressSpace() const {
+    //return AddressSpace::ADDRESS_SPACE_GENERIC;
+    return GenAS;
+  }
+
+  bool isSourceOfDivergence(const llvm::Value *V);
+
+  // this might not be used by uniformity analysis
+  bool canHaveNonUndefGlobalInitializerInAddressSpace(unsigned AS) const {
+    return AS == GenAS || AS == ConstAS;
+    //    return AS != AddressSpace::ADDRESS_SPACE_SHARED &&
+    //           AS != AddressSpace::ADDRESS_SPACE_LOCAL && AS != ADDRESS_SPACE_PARAM;
+  }
+};
+
 
 } // namespace pocl
 

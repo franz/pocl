@@ -26,6 +26,9 @@ IGNORE_COMPILER_WARNING("-Wmaybe-uninitialized")
 POP_COMPILER_DIAGS
 IGNORE_COMPILER_WARNING("-Wunused-parameter")
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/Analysis/CycleAnalysis.h>
+#include <llvm/Analysis/UniformityAnalysis.h>
+#include <llvm/ADT/GenericUniformityImpl.h>
 
 #include "LLVMUtils.h"
 #include "PHIsToAllocas.h"
@@ -53,7 +56,7 @@ namespace pocl {
 using namespace llvm;
 
 static llvm::Instruction *
-breakPHIToAllocas(PHINode *Phi, VariableUniformityAnalysisResult &VUA);
+breakPHIToAllocas(PHINode *Phi, VariableUniformityAnalysisResult &VUA, UniformityInfo &UI);
 
 static bool needsPHIsToAllocas(Function &F, WorkitemHandlerType WIH) {
 #ifdef CBS_NO_PHIS_IN_SPLIT
@@ -72,7 +75,8 @@ static bool needsPHIsToAllocas(Function &F, WorkitemHandlerType WIH) {
 }
 
 static bool runPHIsToAllocas(Function &F,
-                             VariableUniformityAnalysisResult &VUA) {
+                             VariableUniformityAnalysisResult &VUA,
+                             UniformityInfo &UI) {
 
   typedef std::vector<llvm::Instruction* > InstructionVec;
 
@@ -92,7 +96,7 @@ static bool runPHIsToAllocas(Function &F,
   for (InstructionVec::iterator i = PHIs.begin(); i != PHIs.end();
        ++i) {
       Instruction *instr = *i;
-      breakPHIToAllocas(dyn_cast<PHINode>(instr), VUA);
+      breakPHIToAllocas(dyn_cast<PHINode>(instr), VUA, UI);
       changed = true;
   }  
   return changed;
@@ -112,7 +116,7 @@ static bool runPHIsToAllocas(Function &F,
  * break the assumption of single entry regions.
  */
 static llvm::Instruction *
-breakPHIToAllocas(PHINode *Phi, VariableUniformityAnalysisResult &VUA) {
+breakPHIToAllocas(PHINode *Phi, VariableUniformityAnalysisResult &VUA, UniformityInfo &UI) {
 
   // Loop iteration variables can be detected only when they are
   // implemented using PHI nodes. Maintain information of the
@@ -123,7 +127,17 @@ breakPHIToAllocas(PHINode *Phi, VariableUniformityAnalysisResult &VUA) {
 
   llvm::Function *Function = Phi->getParent()->getParent();
 
-  const bool OriginalPHIWasUniform = VUA.isUniform(Function, Phi);
+//  bool OriginalPHIWasUniform = VUA.isUniform(Function, Phi);
+//  bool UIdecision = UI.isUniform(Phi);
+//  OriginalPHIWasUniform = UIdecision;
+
+  bool OriginalPHIWasUniform = UI.isUniform(Phi);
+//  if (UIdecision != OriginalPHIWasUniform) {
+//    std::cerr << "@@@@@@@@@ PHIS2ALLOCAS: Orig: " << OriginalPHIWasUniform << " New: " << UIdecision << "\n";
+//    Phi->dump();
+//  } else {
+//    std::cerr << "@@@@@@@@@ PHIS2ALLOCAS: match\n";
+//  }
 
   IRBuilder<> Builder(&*(Function->getEntryBlock().getFirstInsertionPt()));
 
@@ -199,10 +213,20 @@ llvm::PreservedAnalyses PHIsToAllocas::run(llvm::Function &F,
   VariableUniformityAnalysisResult VUA =
       AM.getResult<VariableUniformityAnalysis>(F);
 
+  auto &CycleInfo = AM.getResult<CycleAnalysis>(F);
+  auto &DomTree = AM.getResult<DominatorTreeAnalysis>(F);
+  //auto &TTI = FAM.getResult<TargetIRAnalysis>(F);
+  POCLTTIImpl PoclTTI{F.getParent()->getDataLayout(), 0};
+
+  TargetTransformInfo TTI2{PoclTTI};
+
+  UniformityInfo UI{DomTree, CycleInfo, &TTI2};
+  UI.compute();
+
   PreservedAnalyses PAChanged = PreservedAnalyses::none();
   PAChanged.preserve<VariableUniformityAnalysis>();
   PAChanged.preserve<WorkitemHandlerChooser>();
-  return runPHIsToAllocas(F, VUA) ? PAChanged : PreservedAnalyses::all();
+  return runPHIsToAllocas(F, VUA, UI) ? PAChanged : PreservedAnalyses::all();
 }
 
 REGISTER_NEW_FPASS(PASS_NAME, PASS_CLASS, PASS_DESC);

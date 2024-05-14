@@ -68,6 +68,89 @@ namespace pocl {
 
 using namespace llvm;
 
+bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
+  // Without inter-procedural analysis, we conservatively assume that arguments
+  // to __device__ functions are divergent.
+  if (const Argument *Arg = dyn_cast<Argument>(V))
+    // TODO pocl VUA just returns uniform=true for arguments
+    // return false;
+    return !isKernelToProcess(*Arg->getParent());
+
+  if (isa<llvm::ConstantInt>(V)) {
+    return false;
+  }
+
+  if (const Instruction *I = dyn_cast<Instruction>(V)) {
+    // Atomic instructions may cause divergence. Atomic instructions are
+    // executed sequentially across all threads in a warp. Therefore, an earlier
+    // executed thread may see different memory inputs than a later executed
+    // thread. For example, suppose *a = 0 initially.
+    //
+    //   atom.global.add.s32 d, [a], 1
+    //
+    // returns 0 for the first thread that enters the critical region, and 1 for
+    // the second thread.
+    if (I->isAtomic())
+      return true;
+
+    // Instructions that read thread index or lane ID are divergent
+    //if (readsThreadIndex(II) || readsLaneId(II))
+
+    if (const LoadInst *Load = dyn_cast<LoadInst>(V)) {
+      const Value *Pointer = Load->getPointerOperand();
+      const Module *M = Load->getParent()->getParent()->getParent();
+
+      // these are not sources of divergence.
+      // _pocl_sub_group_size is currently an alias for local_size.x
+      if (Pointer  == M->getGlobalVariable("_group_id_x") ||
+          Pointer  == M->getGlobalVariable("_group_id_y") ||
+          Pointer  == M->getGlobalVariable("_group_id_z") ||
+          Pointer  == M->getGlobalVariable("_work_dim") ||
+          Pointer  == M->getGlobalVariable("_num_groups_x") ||
+          Pointer  == M->getGlobalVariable("_num_groups_y") ||
+          Pointer  == M->getGlobalVariable("_num_groups_z") ||
+          Pointer  == M->getGlobalVariable("_global_offset_x") ||
+          Pointer  == M->getGlobalVariable("_global_offset_y") ||
+          Pointer  == M->getGlobalVariable("_global_offset_z") ||
+          Pointer  == M->getGlobalVariable("_local_size_x") ||
+          Pointer  == M->getGlobalVariable("_local_size_y") ||
+          Pointer  == M->getGlobalVariable("_local_size_z") ||
+          Pointer  == M->getGlobalVariable("_pocl_sub_group_size") ||
+          Pointer  == M->getGlobalVariable(PoclGVarBufferName)) {
+        return false;
+      }
+
+      // these are source of divergence
+      if (Pointer == M->getGlobalVariable("_local_id_x") ||
+          Pointer == M->getGlobalVariable("_local_id_y") ||
+          Pointer == M->getGlobalVariable("_local_id_z")
+          ) {
+        return true;
+      }
+
+      // Without pointer analysis, we conservatively assume values loaded from
+      // generic or local address space are divergent.
+      // TODO this fails if AS numbers are Target specific already
+      //        unsigned AS = Load->getPointerAddressSpace();
+      //        return AS == SPIR_ADDRESS_SPACE_GENERIC || AS == SPIR_ADDRESS_SPACE_LOCAL;
+    }
+
+//    if (const AllocaInst *Alloca = dyn_cast<AllocaInst>(V)) {
+//    }
+//    if (const PHINode *Phi = dyn_cast<PHINode>(V)) {
+//    }
+
+    // Conservatively consider the return value of function calls as divergent.
+    // We could analyze callees with bodies more precisely using
+    // inter-procedural analysis.
+    if (isa<CallInst>(I))
+      return true;
+  }
+
+  return false;
+}
+
+
 // Recursively mark the canonical induction variable PHI as uniform.
 // If there's a canonical induction variable in loops, the variable
 // update for each iteration should be uniform. Note: this does not yet
@@ -392,6 +475,7 @@ bool VariableUniformityAnalysisResult::isUniform(llvm::Function *F,
         pointer == M->getGlobalVariable("_local_size_x") ||
         pointer == M->getGlobalVariable("_local_size_y") ||
         pointer == M->getGlobalVariable("_local_size_z") ||
+        pointer == M->getGlobalVariable("_pocl_sub_group_size") ||
         pointer == M->getGlobalVariable(PoclGVarBufferName)) {
 
       setUniform(F, V, true);

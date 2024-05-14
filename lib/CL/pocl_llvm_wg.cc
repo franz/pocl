@@ -556,6 +556,9 @@ static void addStage2PassesToPipeline(cl_device_id Dev,
     // required for OLD PM
     addAnalysis(Passes, "workitem-handler-chooser");
     addAnalysis(Passes, "pocl-vua");
+    // analysis passes for UNiformityAn
+    addAnalysis(Passes, "cycles");
+    addAnalysis(Passes, "domtree");
     addPass(Passes, "phistoallocas");
     addPass(Passes, "isolate-regions");
 
