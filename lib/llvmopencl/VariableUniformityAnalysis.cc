@@ -36,6 +36,11 @@ IGNORE_COMPILER_WARNING("-Wunused-parameter")
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/CommandLine.h"
+#include <llvm/Analysis/CycleAnalysis.h>
+#include <llvm/Analysis/UniformityAnalysis.h>
+#include <llvm/ADT/GenericUniformityImpl.h>
+#include <llvm/Analysis/TargetTransformInfoImpl.h>
+#include <llvm/CodeGen/BasicTTIImpl.h>
 POP_COMPILER_DIAGS
 
 #include "Barrier.h"
@@ -68,15 +73,143 @@ namespace pocl {
 
 using namespace llvm;
 
-bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
-  // Without inter-procedural analysis, we conservatively assume that arguments
-  // to __device__ functions are divergent.
-  if (const Argument *Arg = dyn_cast<Argument>(V))
-    // TODO pocl VUA just returns uniform=true for arguments
-    // return false;
-    return !isKernelToProcess(*Arg->getParent());
+class POCLTTIImpl : public llvm::TargetTransformInfoImplCRTPBase<POCLTTIImpl> { //llvm::TargetTransformInfoImplBase {
+  using BaseT = llvm::TargetTransformInfoImplCRTPBase<POCLTTIImpl>;
 
-  if (isa<llvm::ConstantInt>(V)) {
+public:
+  POCLTTIImpl(const llvm::DataLayout &DL, unsigned GAS, UniformityIndex &UIdx)
+    : BaseT(DL), GenAS(GAS) {
+    for (auto& [key, val]: UIdx) {
+      Cache[key] = !val;
+    }
+  }
+  POCLTTIImpl(const POCLTTIImpl &Arg) = default;
+  POCLTTIImpl(POCLTTIImpl &&Arg) : BaseT(Arg.DL), GenAS(Arg.GenAS) {
+    Cache = std::move(Arg.Cache);
+  }
+
+  // copied from NVPTXTTIImpl
+  bool hasBranchDivergence(const llvm::Function *F = nullptr) {
+    return true;
+  }
+
+  unsigned getFlatAddressSpace() const {
+    //return AddressSpace::ADDRESS_SPACE_GENERIC;
+    return GenAS;
+  }
+
+  bool isSourceOfDivergence(const llvm::Value *V);
+
+  // this might not be used by uniformity analysis
+  bool canHaveNonUndefGlobalInitializerInAddressSpace(unsigned AS) const {
+    return AS == GenAS || AS == ConstAS;
+    //    return AS != AddressSpace::ADDRESS_SPACE_SHARED &&
+    //           AS != AddressSpace::ADDRESS_SPACE_LOCAL && AS != ADDRESS_SPACE_PARAM;
+  }
+
+private:
+  bool determineAllocaDivergence(const AllocaInst *Alloca);
+
+  ValueDivergenceMap Cache;
+  unsigned GenAS;
+  unsigned ConstAS;
+};
+
+class UA_Impl {
+  POCLTTIImpl *PoclTTI;
+  TargetTransformInfo *TTI2;
+  UniformityInfo *UI;
+
+public:
+  //VUApImpl() : PoclTTI(nullptr), UI(nullptr), TTI2(nullptr) {}
+
+  ~UA_Impl() {
+    if (UI)
+      delete UI;
+    if (TTI2)
+      delete TTI2;
+    if (PoclTTI)
+      delete PoclTTI;
+  }
+
+  UA_Impl(llvm::Function &F, llvm::CycleInfo &CI, llvm::DominatorTree &DT,
+          UniformityIndex &UIdx) {
+    PoclTTI = new POCLTTIImpl{F.getParent()->getDataLayout(), 0, UIdx};
+    TTI2 = new TargetTransformInfo{*PoclTTI};
+    UI = new UniformityInfo{DT, CI, TTI2};
+    UI->compute();
+  }
+
+  bool isUniform(Value *V) {
+    return UI->isUniform(V);
+  }
+};
+
+
+bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
+  if (Cache.find(V) != Cache.end())
+    return Cache.at(V);
+
+  std::cerr << "#### CHECKING Value: \n";
+  V->dump();
+
+  // entry BB is uniform
+  if (const llvm::BasicBlock *BB = dyn_cast<llvm::BasicBlock>(V)) {
+    if (BB->isEntryBlock()) {
+      Cache[V] = false;
+      return false;
+    }
+  }
+
+  // these are uniform (handle them here, because they'd get handled by
+  // ConstantInt branch
+  if (const llvm::GlobalVariable *GV = dyn_cast<llvm::GlobalVariable>(V)) {
+    std::cerr << "#### CHECKING GV: \n";
+    GV->dump();
+    const Module *M = GV->getParent();
+/*
+    if (GV  == M->getGlobalVariable("_group_id_x") ||
+        GV  == M->getGlobalVariable("_group_id_y") ||
+        GV  == M->getGlobalVariable("_group_id_z") ||
+        GV  == M->getGlobalVariable("_work_dim") ||
+        GV  == M->getGlobalVariable("_num_groups_x") ||
+        GV  == M->getGlobalVariable("_num_groups_y") ||
+        GV  == M->getGlobalVariable("_num_groups_z") ||
+        GV  == M->getGlobalVariable("_global_offset_x") ||
+        GV  == M->getGlobalVariable("_global_offset_y") ||
+        GV  == M->getGlobalVariable("_global_offset_z") ||
+        GV  == M->getGlobalVariable("_local_size_x") ||
+        GV  == M->getGlobalVariable("_local_size_y") ||
+        GV  == M->getGlobalVariable("_local_size_z") ||
+        GV  == M->getGlobalVariable("_pocl_sub_group_size") ||
+        GV  == M->getGlobalVariable(PoclGVarBufferName)) {
+      Cache[V] = false;
+      return false;
+    }
+*/
+    // these are source of divergence
+    if (GV == M->getGlobalVariable("_local_id_x") ||
+        GV == M->getGlobalVariable("_local_id_y") ||
+        GV == M->getGlobalVariable("_local_id_z")
+        ) {
+      Cache[V] = true;
+      return true;
+    } else {
+      Cache[V] = false;
+      return false;
+    }
+  }
+
+  // Without inter-procedural analysis, we conservatively assume that arguments
+  // to __device__ functions are divergent; arguments to __global__(kernel) functions
+  // are uniform
+  if (const Argument *Arg = dyn_cast<Argument>(V)) {
+    Cache[V] = !isKernelToProcess(*Arg->getParent());
+    return Cache[V];
+  }
+
+  if (isa<llvm::ConstantInt>(V) || isa<llvm::ConstantFP>(V)) {
+    Cache[V] = false;
     return false;
   }
 
@@ -90,8 +223,10 @@ bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
     //
     // returns 0 for the first thread that enters the critical region, and 1 for
     // the second thread.
-    if (I->isAtomic())
+    if (I->isAtomic()) {
+      Cache[V] = true;
       return true;
+    }
 
     // Instructions that read thread index or lane ID are divergent
     //if (readsThreadIndex(II) || readsLaneId(II))
@@ -117,6 +252,7 @@ bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
           Pointer  == M->getGlobalVariable("_local_size_z") ||
           Pointer  == M->getGlobalVariable("_pocl_sub_group_size") ||
           Pointer  == M->getGlobalVariable(PoclGVarBufferName)) {
+        Cache[V] = false;
         return false;
       }
 
@@ -125,6 +261,7 @@ bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
           Pointer == M->getGlobalVariable("_local_id_y") ||
           Pointer == M->getGlobalVariable("_local_id_z")
           ) {
+        Cache[V] = true;
         return true;
       }
 
@@ -135,21 +272,145 @@ bool POCLTTIImpl::isSourceOfDivergence(const Value *V) {
       //        return AS == SPIR_ADDRESS_SPACE_GENERIC || AS == SPIR_ADDRESS_SPACE_LOCAL;
     }
 
-//    if (const AllocaInst *Alloca = dyn_cast<AllocaInst>(V)) {
-//    }
-//    if (const PHINode *Phi = dyn_cast<PHINode>(V)) {
-//    }
+    if (const AllocaInst *Alloca = dyn_cast<AllocaInst>(V)) {
+      return determineAllocaDivergence(Alloca);
+    }
+
+    if (isa<llvm::PHINode>(V)) {
+      /* TODO: PHINodes need control flow analysis:
+         even if the values are uniform, the selected
+         value depends on the preceeding basic block which
+         might depend on the ID. Assume they are not uniform
+         for now in general and treat the loop iteration
+         variable as a special case (set externally from a LoopPass).
+
+         TODO: PHINodes can depend (indirectly or directly) on itself in loops
+         so it would need infinite recursion checking.
+      */
+      Cache[V] = true;
+      return true;
+    }
 
     // Conservatively consider the return value of function calls as divergent.
     // We could analyze callees with bodies more precisely using
     // inter-procedural analysis.
-    if (isa<CallInst>(I))
+    if (isa<CallInst>(I)) {
+      Cache[V] = true;
       return true;
+    }
+
+    // not computed previously, scan all operands of the instruction
+    // and figure out their uniformity recursively
+    for (unsigned Opr = 0; Opr < I->getNumOperands(); ++Opr) {
+      llvm::Value *Operand = I->getOperand(Opr);
+      if (isSourceOfDivergence(Operand)) {
+        Cache[V] = true;
+        return true;
+      }
+    }
+    Cache[V] = false;
+    return false;
   }
 
-  return false;
+  // default for non-instructions from PoCL VUA: non-uniform
+//  if (instr == NULL) {
+//    setUniform(F, V, false);
+//    return false;
+//  }
+  Cache[V] = true;
+  return true;
 }
 
+bool POCLTTIImpl::determineAllocaDivergence(const AllocaInst *Alloca) {
+  /* Allocas might or might not be divergent. These are produced
+     from work-item private arrays or the PHIsToAllocas. It depends
+     what is written to them whether they are really divergent.
+
+     We need to figure out if any of the stores to the alloca contain
+     work-item id dependent data. Take a white listing approach that
+     detects the ex-phi allocas of loop iteration variables of non-diverging
+     loops.
+
+     Currently the following case is white listed:
+     a) are scalars, and
+     b) are accessed only with load and stores (e.g. address not taken) from
+        uniform basic blocks, and
+     c) the stored data is uniform
+
+     Because alloca data can be modified in loops and thus be dependent on
+     itself, we need a bit involved mechanism to handle it. First create
+     a copy of the uniformity cache, then assume the alloca itself is uniform,
+     then check if all the stores to the alloca contain uniform data. If
+     our initial assumption was wrong, restore the cache from the backup.
+  */
+  UniformityIndex BackupCache(Cache);
+  Cache[Alloca] = false;
+
+  std::cerr << "#### CHECKING ALLOCA: \n";
+  Alloca->dump();
+
+  bool isUniformAlloca = true;
+  //llvm::Instruction *instruction = dyn_cast<llvm::AllocaInst>(V);
+  for (Instruction::const_use_iterator UI = Alloca->use_begin(),
+         UE = Alloca->use_end(); UI != UE; ++UI) {
+
+    llvm::Instruction *User = cast<Instruction>(UI->getUser());
+    if (User == nullptr) continue;
+
+    llvm::StoreInst *Store = dyn_cast<llvm::StoreInst>(User);
+    if (Store) {
+      if (isSourceOfDivergence(Store->getValueOperand()) ||
+          isSourceOfDivergence(Store->getParent())) {
+        if (isSourceOfDivergence(Store->getParent())) {
+#ifdef DEBUG_UNIFORMITY_ANALYSIS
+          std::cerr << "### alloca was written in a non-uniform BB" << std::endl;
+          store->getParent()->dump();
+          /* TODO: This is a problematic chicken-egg situation because the
+             BB uniformity check ends up analyzing allocas in phi-removed code:
+             the loop constructs refer to these allocas and at that point we
+             do not yet know if the BB itself is uniform. This leads to not
+             being able to detect loop iteration variables as uniform. */
+#endif
+        }
+        isUniformAlloca = false;
+        break;
+      }
+    } else if (isa<llvm::LoadInst>(User) || isa<llvm::BitCastInst>(User)) {
+    } else if (isa<llvm::CallInst>(User)) {
+      CallInst *CallInstr = dyn_cast<CallInst>(User);
+      Function *Callee = CallInstr->getCalledFunction();
+      if (Callee != nullptr &&
+          (Callee->getName().starts_with("llvm.lifetime.end") ||
+           Callee->getName().starts_with("llvm.lifetime.start"))) {
+#ifdef DEBUG_UNIFORMITY_ANALYSIS
+        std::cerr << "### alloca is used by llvm.lifetime" << std::endl;
+        user->dump();
+#endif
+      } else {
+#ifdef DEBUG_UNIFORMITY_ANALYSIS
+        std::cerr << "### alloca has a suspicious user" << std::endl;
+        user->dump();
+#endif
+        isUniformAlloca = false;
+        break;
+      }
+    } else {
+#ifdef DEBUG_UNIFORMITY_ANALYSIS
+      std::cerr << "### alloca has a suspicious user" << std::endl;
+      user->dump();
+#endif
+      isUniformAlloca = false;
+      break;
+    }
+  }
+
+  if (!isUniformAlloca) {
+    // restore the old uniform data as our guess was wrong
+    Cache = std::move(BackupCache);
+  }
+  Cache[Alloca] = !isUniformAlloca;
+  return !isUniformAlloca;
+}
 
 // Recursively mark the canonical induction variable PHI as uniform.
 // If there's a canonical induction variable in loops, the variable
@@ -171,7 +432,8 @@ void VariableUniformityAnalysisResult::markInductionVariables(Function &F,
 }
 
 bool VariableUniformityAnalysisResult::runOnFunction(
-    Function &F, llvm::LoopInfo &LI, llvm::PostDominatorTree &PDT) {
+    Function &F, llvm::LoopInfo &LI, llvm::PostDominatorTree &PDT,
+      llvm::CycleInfo &CI, llvm::DominatorTree &DT) {
 
   if (!isKernelToProcess(F))
     return false;
@@ -193,6 +455,8 @@ bool VariableUniformityAnalysisResult::runOnFunction(
 
   setUniform(&F, &F.getEntryBlock());
   analyzeBBDivergence(&F, &F.getEntryBlock(), &F.getEntryBlock(), PDT);
+
+  Impl = new UA_Impl(F, CI, DT, uniformityCache_[&F]);
   return false;
 }
 
@@ -340,7 +604,7 @@ bool VariableUniformityAnalysisResult::isUniformityAnalyzed(
  * c) OpenCL C identifiers that are constant for all work-items in a work-group
  * 
  */
-bool VariableUniformityAnalysisResult::isUniform(llvm::Function *F,
+bool VariableUniformityAnalysisResult::isUniform2(llvm::Function *F,
                                                  llvm::Value *V) {
 
   UniformityIndex &Cache = uniformityCache_[F];
@@ -526,6 +790,24 @@ bool VariableUniformityAnalysisResult::isUniform(llvm::Function *F,
   return true;
 }
 
+bool VariableUniformityAnalysisResult::isUniform(llvm::Function *F, llvm::Value *V) {
+  bool OrigUI = isUniform2(F,V);
+
+  bool NewUI = true;
+  if (Impl) {
+    NewUI = Impl->isUniform(V);
+  }
+
+  if (NewUI != OrigUI) {
+    std::cerr << "@@@@@@@@@ VUA MISMATCH in isUniform || Orig: "
+              << OrigUI << " || New: " << NewUI << "\n";
+    V->dump();
+  }
+
+//  return OrigUI;
+  return NewUI;
+}
+
 void VariableUniformityAnalysisResult::setUniform(llvm::Function *F,
                                                   llvm::Value *V,
                                                   bool isUniform) {
@@ -594,8 +876,11 @@ VariableUniformityAnalysis::run(llvm::Function &F,
   llvm::PostDominatorTree &PDT =
       AM.getResult<llvm::PostDominatorTreeAnalysis>(F);
 
+  llvm::CycleInfo &CI = AM.getResult<CycleAnalysis>(F);
+  llvm::DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
+
   VariableUniformityAnalysisResult Res;
-  Res.runOnFunction(F, LI, PDT);
+  Res.runOnFunction(F, LI, PDT, CI, DT);
   return Res;
 }
 
@@ -615,6 +900,12 @@ bool VariableUniformityAnalysisResult::invalidate(
   }
   return !Preserved;
 #endif
+}
+
+VariableUniformityAnalysisResult::~VariableUniformityAnalysisResult() {
+  if (Impl)
+    delete Impl;
+  Impl = nullptr;
 }
 
 REGISTER_NEW_FANALYSIS(PASS_NAME, PASS_CLASS, PASS_DESC);

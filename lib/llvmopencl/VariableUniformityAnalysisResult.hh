@@ -28,19 +28,53 @@ class BasicBlock;
 class Value;
 class Module;
 class Loop;
+class DominatorTree;
 
 class PreservedAnalyses;
 template <typename, typename...> class AnalysisManager;
+
+// TODO this is ugly. Probably should just include CycleInfo
+template <typename> class GenericCycleInfo;
+template <typename> class GenericSSAContext;
+using SSAContext = class GenericSSAContext<Function>;
+using CycleInfo = GenericCycleInfo<SSAContext>;
+
 } // namespace llvm
 
+//#include <llvm/IR/CycleInfo.h>
 #include <map>
 
 namespace pocl {
+
+class UA_Impl;
+
+using UniformityIndex = std::map<const llvm::Value *, bool>;
+using UniformityCache = std::map<llvm::Function *, UniformityIndex>;
+using ValueDivergenceMap = std::map<const llvm::Value *, bool>;
+
+
 class VariableUniformityAnalysisResult {
 
 public:
+  VariableUniformityAnalysisResult() : Impl(nullptr) {}
+  ~VariableUniformityAnalysisResult();
+
+  VariableUniformityAnalysisResult(const VariableUniformityAnalysisResult &) = delete;
+  VariableUniformityAnalysisResult &operator=(const VariableUniformityAnalysisResult &) = delete;
+
+  VariableUniformityAnalysisResult(VariableUniformityAnalysisResult &&R) {
+    *this = std::move(R);
+  }
+
+  VariableUniformityAnalysisResult &operator=(VariableUniformityAnalysisResult &&R) {
+    Impl = R.Impl;
+    R.Impl = nullptr;
+    uniformityCache_ = std::move(R.uniformityCache_);
+    return *this;
+  }
+
   bool runOnFunction(llvm::Function &F, llvm::LoopInfo &LI,
-                     llvm::PostDominatorTree &PDT);
+                     llvm::PostDominatorTree &PDT, llvm::CycleInfo &CI, llvm::DominatorTree &DT);
   bool isUniform(llvm::Function *F, llvm::Value *V);
   void setUniform(llvm::Function *F, llvm::Value *V, bool isUniform = true);
   void analyzeBBDivergence(llvm::Function *F, llvm::BasicBlock *BB,
@@ -50,7 +84,6 @@ public:
   bool shouldBePrivatized(llvm::Function *F, llvm::Value *Val);
   bool doFinalization(llvm::Module &M);
   void markInductionVariables(llvm::Function &F, llvm::Loop &L);
-  ~VariableUniformityAnalysisResult() { uniformityCache_.clear(); }
 
   // TODO this could be wrong
 #if LLVM_MAJOR >= MIN_LLVM_NEW_PASSMANAGER
@@ -60,10 +93,10 @@ public:
 
 private:
   bool isUniformityAnalyzed(llvm::Function *F, llvm::Value *V) const;
+  bool isUniform2(llvm::Function *F, llvm::Value *V);
 
-  using UniformityIndex = std::map<llvm::Value *, bool>;
-  using UniformityCache = std::map<llvm::Function *, UniformityIndex>;
   mutable UniformityCache uniformityCache_;
+  UA_Impl *Impl;
 };
 
 } // namespace pocl

@@ -454,13 +454,10 @@ public:
                  llvm::BasicBlock *AfterBB,
                  llvm::ArrayRef<llvm::Value *> LocalSize);
 
-  void arrayifyMultiSubCfgValues(
-      llvm::DenseMap<llvm::Instruction *, llvm::AllocaInst *> &InstAllocaMap,
+  void arrayifyMultiSubCfgValues(llvm::DenseMap<llvm::Instruction *, llvm::AllocaInst *> &InstAllocaMap,
       llvm::DenseMap<llvm::Instruction *, llvm::AllocaInst *>
           &BaseInstAllocaMap,
-      llvm::DenseMap<llvm::Instruction *,
-                     llvm::SmallVector<llvm::Instruction *, 8>>
-          &ContInstReplicaMap,
+      llvm::DenseMap<Instruction *, llvm::SmallVector<Instruction *, 8> > &ContInstReplicaMap,
       llvm::ArrayRef<SubCFG> SubCFGs, llvm::Instruction *AllocaIP,
       llvm::Value *ReqdArrayElements,
       pocl::VariableUniformityAnalysisResult &VecInfo);
