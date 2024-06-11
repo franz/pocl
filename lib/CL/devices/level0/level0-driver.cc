@@ -1725,7 +1725,7 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
   ClDev->generic_as_support = CL_TRUE;
   ClDev->supported_spir_v_versions = "SPIR-V_1.2";
   ClDev->on_host_queue_props = CL_QUEUE_PROFILING_ENABLE;
-  ClDev->version_of_latest_passed_cts = "v2000-00-00-00";
+  ClDev->version_of_latest_passed_cts = "v2000-01-01-99";
 
   // deviceProperties
   switch (DeviceProperties.type) {
@@ -1915,17 +1915,20 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
                          " cl_khr_global_int32_extended_atomics"
                          " cl_khr_local_int32_base_atomics"
                          " cl_khr_local_int32_extended_atomics"
-                         " cl_khr_il_program"
-                         " cl_khr_3d_image_writes");
+                         " cl_khr_il_program");
 
-  std::string OpenCL30Features("__opencl_c_images"
-                               " __opencl_c_read_write_images"
-                               " __opencl_c_3d_image_writes"
-                               " __opencl_c_atomic_order_acq_rel"
+  std::string OpenCL30Features(" __opencl_c_atomic_order_acq_rel"
                                " __opencl_c_atomic_order_seq_cst"
                                " __opencl_c_atomic_scope_device"
                                " __opencl_c_program_scope_global_variables"
                                " __opencl_c_generic_address_space");
+
+#ifndef ENABLE_CONFORMANCE
+  Extensions += " cl_khr_3d_image_writes";
+  OpenCL30Features += "__opencl_c_images"
+                      " __opencl_c_read_write_images"
+                      " __opencl_c_3d_image_writes";
+#endif
 
   if ((ModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_INT64_ATOMICS) != 0u) {
     Extensions.append(" cl_khr_int64_base_atomics"
@@ -1939,13 +1942,20 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
     Extensions.append(" cl_khr_fp64");
     OpenCL30Features.append(" __opencl_c_fp64");
   }
+#ifndef ENABLE_CONFORMANCE
   if (ClDev->max_num_sub_groups > 0) {
     Extensions.append(" cl_khr_subgroups");
     OpenCL30Features.append(" __opencl_c_subgroups");
     OpenCL30Features.append(" __opencl_c_work_group_collective_functions");
   }
+#else
+  ClDev->max_num_sub_groups = 0;
+#endif
+
   if (ClDev->has_64bit_long != 0) {
+#ifndef ENABLE_CONFORMANCE
     Extensions.append(" cl_khr_int64");
+#endif
     OpenCL30Features.append(" __opencl_c_int64");
   }
 
@@ -2045,6 +2055,7 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
   // externalMemProperties
   ClDev->mem_base_addr_align = MAX_EXTENDED_ALIGNMENT;
 
+#ifndef ENABLE_CONFORMANCE
   // imageProperties
   ClDev->max_read_image_args = ImageProperties.maxReadImageArgs;
   ClDev->max_read_write_image_args = ImageProperties.maxWriteImageArgs;
@@ -2063,8 +2074,8 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
     ClDev->num_image_formats[i] = NumSupportedImageFormats;
     ClDev->image_formats[i] = SupportedImageFormats;
   }
-
   ClDev->image_support = CL_TRUE;
+#endif
 
   // QGroupProps
   uint32_t UniversalQueueOrd = UINT32_MAX;
