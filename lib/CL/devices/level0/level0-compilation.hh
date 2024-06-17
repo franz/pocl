@@ -641,6 +641,8 @@ private:
                          const std::vector<uint8_t> &ModelXml,
                          const std::vector<uint8_t> &ModelBin,
                          const char* BuildFlags,
+                         std::string ProgCachePath,
+                         std::string ProgNativeDir,
                          Level0BuiltinKernelBuild &Out);
 
   std::map<std::string, Level0BuiltinKernelBuild> KernelBuilds;
