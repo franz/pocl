@@ -45,12 +45,13 @@
 
 using namespace pocl;
 
-static std::string getStringHash(const std::string &Input) {
+
+static std::string getStringHash(const uint8_t *Data, size_t Size) {
   std::string Out;
   SHA1_CTX Ctx;
   uint8_t Digest[SHA1_DIGEST_SIZE];
   pocl_SHA1_Init(&Ctx);
-  pocl_SHA1_Update(&Ctx, (const uint8_t *)Input.data(), Input.size());
+  pocl_SHA1_Update(&Ctx, Data, Size);
   pocl_SHA1_Final(&Ctx, Digest);
   for (unsigned i = 0; i < SHA1_DIGEST_SIZE; i++) {
     char Lo = (Digest[i] & 0x0F) + 65;
@@ -59,6 +60,10 @@ static std::string getStringHash(const std::string &Input) {
     Out.append(1, Hi);
   }
   return Out;
+}
+
+static std::string getStringHash(const std::string &Input) {
+  return getStringHash((const uint8_t *)Input.data(), Input.size());
 }
 
 Level0Kernel::Level0Kernel(const std::string N) : Name(N) {
@@ -825,6 +830,68 @@ bool Level0BuiltinProgramBuild::compareSameClass(Level0BuildBase *Other) {
   return true;
 }
 
+static void getModelNativeCachePath(Level0BuiltinProgram *Program,
+                                    const std::vector<uint8_t> &ModelXml,
+                                    const std::vector<uint8_t> &ModelBin,
+                                    const std::string &Name,
+                                    const std::string &BuildFlags,
+                                    std::string &ProgCachePath,
+                                    std::string &ProgNativeDir) {
+  ProgCachePath = Program->getCacheDir();
+  ProgCachePath.append("/native/");
+  ProgCachePath.append(Program->getCacheUUID());
+  ProgNativeDir = ProgCachePath;
+
+  ProgCachePath.append("/");
+  ProgCachePath.append(Name);
+  ProgCachePath.append("_");
+
+  std::vector<uint8_t> Temp;
+  Temp.insert(Temp.end(), Name.begin(), Name.end());
+  if (!BuildFlags.empty())
+  Temp.insert(Temp.end(), BuildFlags.begin(), BuildFlags.end());
+  if (ModelXml.size())
+    Temp.insert(Temp.end(), ModelXml.begin(), ModelXml.end());
+  if (ModelBin.size())
+    Temp.insert(Temp.end(), ModelBin.begin(), ModelBin.end());
+
+  ProgCachePath.append(getStringHash(Temp.data(), Temp.size()));
+
+  ProgCachePath.append(".vpu");
+}
+
+static bool findModelInNativeCache(Level0BuiltinProgram *Program,
+                                   const std::vector<uint8_t> &ModelXml,
+                                   const std::vector<uint8_t> &ModelBin,
+                                   const char* BuildFlags,
+                                   const std::string &Name,
+                                   std::string &ProgCachePath,
+                                   std::string &ProgNativeDir,
+                                   Level0BuiltinKernelBuild &Out) {
+  // TODO KernelCacheUUID ? NPU driver version ?
+  getModelNativeCachePath(Program, ModelXml, ModelBin,
+                          BuildFlags, Name,
+                          ProgCachePath, ProgNativeDir);
+
+  char *Binary = nullptr;
+  uint64_t BinarySize = 0;
+  if (pocl_exists(ProgCachePath.c_str()) != 0 &&
+      pocl_read_file(ProgCachePath.c_str(), &Binary, &BinarySize) == 0) {
+
+    POCL_MSG_PRINT_LEVEL0("Found native Model binary in cache:  %s \n",
+                          ProgCachePath.c_str());
+    Out.VpuNativeBinary.insert(Out.VpuNativeBinary.end(), (uint8_t *)Binary,
+                        (uint8_t *)(Binary + BinarySize));
+    POCL_MEM_FREE(Binary);
+    return true;
+  } else {
+    POCL_MSG_PRINT_LEVEL0("Native binary not found in cache.\n");
+  }
+
+  return false;
+}
+
+
 bool Level0BuiltinProgramBuild::loadBinary(ze_context_handle_t FinalContextH,
                                            ze_device_handle_t FinalDeviceH,
                                            ze_command_queue_handle_t QueueH,
@@ -891,12 +958,9 @@ bool Level0BuiltinProgramBuild::compileFromXmlBin(ze_context_handle_t ContextH,
                                                   const std::vector<uint8_t> &ModelXml,
                                                   const std::vector<uint8_t> &ModelBin,
                                                   const char* BuildFlags,
+                                                  std::string ProgCachePath,
+                                                  std::string ProgNativeDir,
                                                   Level0BuiltinKernelBuild &Out) {
-
-  // TODO caching
-  //  bool Cached = findInNativeCache(Program, Spec, KernelCacheUUID, BuildFlags,
-  //                                  ProgCachePath, ProgNativeDir, NativeBinary);
-  bool Cached = false;
 
   BuildLog.append("Starting BuiltinProgram Graph compilation\n");
   std::vector<uint8_t> Model;
@@ -1000,6 +1064,16 @@ bool Level0BuiltinProgramBuild::compileFromXmlBin(ze_context_handle_t ContextH,
   }
 
   Out.GraphHFinal = nullptr;
+
+  if (pocl_mkdir_p(ProgNativeDir.c_str()) != 0) {
+    BuildLog.append("Graph compilation: failed to create cache dir\n");
+  }
+  if (pocl_write_file(ProgCachePath.c_str(),
+                     (char *)Out.VpuNativeBinary.data(),
+                     (uint64_t)NativeSize, 0) != 0) {
+    BuildLog.append("Graph compilation: failed to write cache file\n");
+  }
+
   BuildLog.append("BuiltinProgram Graph compilation successful\n");
   return true;
 }
@@ -1161,7 +1235,6 @@ static const Level0Model Level0GraphModels[NumLevel0GraphModels] = {
     .NGraphBin = "googlenet-v1.bin",
     .BuildFlags =  R"RAW(--inputs_precisions="data:U8" --inputs_layouts="data:NCHW"  --outputs_precisions="dot:FP16" --outputs_layouts="dot:NC" --config NPU_PLATFORM="3720" LOG_LEVEL="LOG_DEBUG")RAW"
   },
-
   Level0Model{
     .Name = "pocl.gemm.fp16",
     .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
@@ -1177,6 +1250,7 @@ static const Level0Model Level0GraphModels[NumLevel0GraphModels] = {
     .BuildFlags =  R"RAW(--inputs_precisions="x1:FP32 x2:FP32" --inputs_layouts="x1:NC x2:NC" --outputs_precisions="model/dot/MatMul:FP32" --outputs_layouts="model/dot/MatMul:NC" --config   NPU_PLATFORM="3720" PERFORMANCE_HINT="LATENCY")RAW"
   }
 };
+
 
 // returns semicolon separated list of recognized models
 void pocl::getNpuGraphModelsList(std::string &Out, unsigned &NumKernels) {
@@ -1243,6 +1317,10 @@ bool Level0BuiltinProgramBuild::loadModel(ze_context_handle_t ContextH,
   if (M->Format == ZE_GRAPH_FORMAT_NGRAPH_LITE) {
     std::vector<uint8_t> ModelXml;
     std::vector<uint8_t> ModelBin;
+
+    std::string ProgCachePath;
+    std::string ProgNativeDir;
+
     BuildLog.append("Loading Model XML & Bin\n");
 
     if (!readFile(ModelDirectoryPath, M->NGraphXml, ModelXml, BuildLog)) {
@@ -1252,10 +1330,20 @@ bool Level0BuiltinProgramBuild::loadModel(ze_context_handle_t ContextH,
       return false;
     }
 
+    if (findModelInNativeCache(Program,
+                               ModelXml, ModelBin,
+                               M->BuildFlags, M->Name,
+                               ProgCachePath, ProgNativeDir, Out)) {
+      BuildLog.append("Model XML & Bin loaded, found cached "
+                      "Native Model, not building\n");
+      return true;
+    }
+
     BuildLog.append("Model XML & Bin loaded, compiling\n");
     return compileFromXmlBin(ContextH, DeviceH,
                              ModelXml, ModelBin,
                              M->BuildFlags,
+                             ProgCachePath, ProgNativeDir,
                              Out);
   }
 
