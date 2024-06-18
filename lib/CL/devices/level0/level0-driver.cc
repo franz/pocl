@@ -3322,30 +3322,12 @@ bool Level0Device::getOptimalKernelWGSize(cl_kernel Kernel, unsigned DeviceI,
                             size_t *LocalY, size_t *LocalZ) {
 
   Level0Kernel *L0Kernel = (Level0Kernel *)Kernel->data[DeviceI];
-  ze_kernel_handle_t HKernel = nullptr; //L0Kernel->getAnyCreated();
 
-  ze_result_t Res = ZE_RESULT_ERROR_DEVICE_LOST;
-  if (HKernel != nullptr) {
-    uint32_t SuggestedX, SuggestedY, SuggestedZ;
-    Res = zeKernelSuggestGroupSize(HKernel, GlobalX, GlobalY, GlobalZ,
-                                   &SuggestedX, &SuggestedY, &SuggestedZ);
-    if (Res == ZE_RESULT_SUCCESS) {
-      *LocalX = SuggestedX;
-      *LocalY = SuggestedY;
-      *LocalZ = SuggestedZ;
-    } else {
-      POCL_MSG_WARN("zeKernelSuggestGroupSize FAILED: %u\n", (unsigned)Res);
-      *LocalX = 1;
-      *LocalY = 1;
-      *LocalZ = 1;
-    }
-  } else {
-    *LocalX = 1;
-    *LocalY = 1;
-    *LocalZ = 1;
+  if (L0Kernel != nullptr) {
+    return L0Kernel->getGroupSize(GlobalX, GlobalY, GlobalZ,
+                                  *LocalX, *LocalY, *LocalZ, false);
   }
-
-  return (Res == ZE_RESULT_SUCCESS);
+  return false;
 }
 
 cl_bitfield Level0Device::getMemCaps(cl_device_info Type) {

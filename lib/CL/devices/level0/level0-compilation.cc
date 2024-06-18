@@ -96,6 +96,16 @@ bool Level0Kernel::createForBuild(BuildSpecialization Spec,
   }
 
   KernelHandles[Spec] = KernelH;
+  ze_kernel_max_group_size_properties_ext_t MaxGroupProps = {
+    ZE_STRUCTURE_TYPE_KERNEL_MAX_GROUP_SIZE_EXT_PROPERTIES,
+    nullptr, 0
+  };
+  ze_kernel_properties_t Props = {
+    ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, &MaxGroupProps, 0
+  };
+  Res = zeKernelGetProperties(KernelH, &Props);
+//  if (Res == ZE_RESULT_SUCCESS) {
+  KernelMaxGroupSizes[Spec] = MaxGroupProps.maxGroupSize;
   return true;
 }
 
@@ -119,6 +129,51 @@ ze_kernel_handle_t Level0Kernel::getAnyCreated() {
     return nullptr;
   } else {
     return KernelHandles.begin()->second;
+  }
+}
+
+bool Level0Kernel::getGroupSize(size_t GlobX, size_t GlobY, size_t GlobZ,
+    size_t &LocalX, size_t &LocalY, size_t &LocalZ, bool LargeOfs) {
+
+  if (KernelHandles.empty())
+    return false;
+
+  // TODO should use specialization to get kernel handle & max group size !
+  BuildSpecialization Spec = {
+    .Optimize = true,
+    .LargeOffsets = LargeOfs,
+    .Debug = false,
+    .SmallWGSize = false
+  };
+
+  auto It = KernelHandles.find(Spec);
+  ze_kernel_handle_t HKernel = nullptr;
+  size_t MaxGroupSize = 0;
+  if (It != KernelHandles.end()) {
+    HKernel = It->second;
+    MaxGroupSize = KernelMaxGroupSizes[Spec];
+  } else {
+    HKernel = KernelHandles.begin()->second;
+    MaxGroupSize = UINT32_MAX;
+  }
+  uint32_t OutX, OutY, OutZ;
+  ze_result_t Res = zeKernelSuggestGroupSize(HKernel, GlobX, GlobY, GlobZ,
+                                              &OutX, &OutY, &OutZ);
+  if (Res == ZE_RESULT_SUCCESS) {
+    size_t Mul = OutX * OutY * OutZ;
+    POCL_MSG_WARN("Max WG Sizes: %u %u %u | MaxGroupSize: %zu \n",
+                  OutX, OutY, OutZ, MaxGroupSize);
+    if (Mul > MaxGroupSize) {
+      POCL_MSG_WARN("Suggested size exceeds max size: %zu / %zu\n",
+                    Mul, MaxGroupSize);
+    }
+    LocalX = OutX;
+    LocalY = OutY;
+    LocalZ = OutZ;
+    return true;
+  } else {
+    POCL_MSG_WARN("zeKernelSuggestGroupSize FAILED: %u\n", (unsigned)Res);
+    return false;
   }
 }
 
@@ -2000,7 +2055,7 @@ bool Level0CompilationJobScheduler::getBestKernel(Level0Program *Prog,
   }
 
   // this is optional; if a Large-WG build exists, it's also usable
-  bool CanBeSmallWG = LocalWGSize < 32;
+  bool CanBeSmallWG = LocalWGSize < SmallWGSizeLimit;
 
   bool Res;
   Res = Program->getBestKernel(Kernel, MustUseLargeOffsets, CanBeSmallWG, Mod,
