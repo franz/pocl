@@ -71,6 +71,7 @@ typedef ze_graph_dditable_ext_1_5_t graph_dditable_ext_t;
 
 namespace pocl {
 
+constexpr unsigned SmallWGSizeLimit = 64;
 /// specialization flags
 
 /// true = -ze-opt-level=2, false = -ze-opt-disable
@@ -82,7 +83,6 @@ namespace pocl {
 // bool Debug;
 /// true = ' -ze-opt-large-register-file'
 // bool SmallWGSize;
-
 struct BuildSpecialization {
   bool Optimize;
   bool LargeOffsets;
@@ -184,6 +184,8 @@ public:
   const std::string &getName() { return Name; }
   const std::string &getCacheUUID() { return CacheUUID; }
 
+  bool getGroupSize(size_t GlobX, size_t GlobY, size_t GlobZ,
+                    size_t &LocalX, size_t &LocalY, size_t &LocalZ, bool LargeOfs);
   void setIndirectAccess(ze_kernel_indirect_access_flag_t AccessFlag,
                          bool Value);
   void setAccessedPointers(const std::map<void *, size_t> &Ptrs);
@@ -202,6 +204,7 @@ private:
   std::mutex Mutex;
   /// map of program build specializations to Kernel handles
   std::map<BuildSpecialization, ze_kernel_handle_t> KernelHandles;
+  std::map<BuildSpecialization, size_t> KernelMaxGroupSizes;
   /// for indirect access
   std::map<void *, size_t> AccessedPointers;
 
