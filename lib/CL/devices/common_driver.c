@@ -42,7 +42,7 @@
 #include "pocl_file_util.h"
 
 // sanitize kernel name
-#include "builtin_kernels.hh"
+#include "builtin_kernels.h"
 #include "pocl_workgroup_func.h"
 
 int pocl_setup_builtin_metadata (cl_device_id device, cl_program program,

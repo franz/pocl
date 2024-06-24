@@ -32,7 +32,7 @@
 #include "AlmaIFDevice.hh"
 #include "EmulationDevice.hh"
 #include "bufalloc.h"
-#include "builtin_kernels.hh"
+#include "builtin_kernels.h"
 
 #define ALMAIF_DEFAULT_PRIVATE_MEM_SIZE (2048)
 

@@ -24,7 +24,7 @@
 */
 
 #include "basic.h"
-#include "builtin_kernels.hh"
+#include "builtin_kernels.h"
 #include "common.h"
 #include "config.h"
 #include "config2.h"
@@ -571,7 +571,7 @@ void
 pocl_basic_compile_kernel (_cl_command_node *cmd, cl_kernel kernel,
                            cl_device_id device, int specialize)
 {
-  char *saved_name = NULL;
+  const char *saved_name = NULL;
   pocl_sanitize_builtin_kernel_name (kernel, &saved_name);
   if (cmd != NULL && cmd->type == CL_COMMAND_NDRANGE_KERNEL)
     pocl_check_kernel_dlhandle_cache (cmd, CL_FALSE, specialize);

@@ -32,10 +32,9 @@
 #include "tce_common.h"
 #include "utlist.h"
 
-#include "builtin_kernels.hh"
+#include "builtin_kernels.h"
 #include "common_driver.h"
 #include "pocl_cache.h"
-#include "builtin_kernels.hh"
 #include "common_driver.h"
 
 #ifndef _MSC_VER

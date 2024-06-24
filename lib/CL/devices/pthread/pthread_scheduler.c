@@ -32,7 +32,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "builtin_kernels.hh"
+#include "builtin_kernels.h"
 #include "common.h"
 #include "common_driver.h"
 #include "pocl-pthread.h"
@@ -460,7 +460,7 @@ pocl_pthread_prepare_kernel (void *data, _cl_command_node *cmd)
   pocl_driver_build_gvar_init_kernel (program, dev_i, cmd->device,
                                       pocl_cpu_gvar_init_callback);
 
-  char *saved_name = NULL;
+  const char *saved_name = NULL;
   pocl_sanitize_builtin_kernel_name (kernel, &saved_name);
   void *ci = pocl_check_kernel_dlhandle_cache (cmd, CL_TRUE, CL_TRUE);
   cmd->command.run.device_data = ci;

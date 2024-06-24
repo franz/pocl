@@ -25,7 +25,7 @@
 #ifndef POCL_ALMAIFBITSTREAMDATABASEMANAGER_H
 #define POCL_ALMAIFBITSTREAMDATABASEMANAGER_H
 
-#include "builtin_kernels.hh"
+#include "builtin_kernels.h"
 
 #include <map>
 #include <string>

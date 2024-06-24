@@ -6,7 +6,7 @@
 
   1) add it to the end of BuiltinKernelId enum in this file, before POCL_CDBI_LAST
 
-  2) open builtin_kernels.cc and edit pocl_BIDescriptors, add a new struct
+  2) open builtin_kernels.c and edit pocl_BIDescriptors, add a new struct
      for the new kernel, with argument metadata
 
   3) make sure that devices where you want to support this builtin kernel,
@@ -28,20 +28,18 @@
        * almaif driver with other backends has builtin kernels in binary format
   (bitstream)
 
-
 */
 
 #ifndef POCL_BUILTIN_KERNELS_H
 #define POCL_BUILTIN_KERNELS_H
 
 #ifdef __cplusplus
+extern "C"
+{
+#endif
 
-#include <vector>
-
-enum BuiltinKernelId : uint16_t {
+typedef enum {
   // CD = custom device, BI = built-in
-  // 1D array byte copy, get_global_size(0) defines the size of data to copy
-  // kernel prototype: pocl.copy(char *input, char *output)
   POCL_CDBI_COPY_I8 = 0,
   POCL_CDBI_ADD_I32 = 1,
   POCL_CDBI_MUL_I32 = 2,
@@ -84,72 +82,23 @@ enum BuiltinKernelId : uint16_t {
   POCL_CDBI_DBK_KHR_MATMUL = 39,
   POCL_CDBI_LAST,
   POCL_CDBI_JIT_COMPILER = 0xFFFF
-};
-
-// An initialization wrapper for kernel argument metadatas.
-struct BIArg : public pocl_argument_info
-{
-  BIArg (const char *TypeName, const char *Name, pocl_argument_type Type,
-         cl_kernel_arg_address_qualifier ADQ = CL_KERNEL_ARG_ADDRESS_GLOBAL,
-         cl_kernel_arg_access_qualifier ACQ = CL_KERNEL_ARG_ACCESS_NONE,
-         cl_kernel_arg_type_qualifier TQ = CL_KERNEL_ARG_TYPE_NONE,
-         size_t size = 0)
-  {
-    name = strdup (Name);
-    address_qualifier = ADQ;
-    access_qualifier = ACQ;
-    type_qualifier = TQ;
-    type_name = strdup (TypeName);
-    type_size = size;
-    type = Type;
-  }
-
-  ~BIArg ()
-  {
-    free (name);
-    free (type_name);
-  }
-};
-
-// An initialization wrapper for kernel metadatas.
-// BIKD = Built-in Kernel Descriptor
-struct BIKD : public pocl_kernel_metadata_t
-{
-  BIKD(BuiltinKernelId KernelId, const char *KernelName,
-       const std::vector<pocl_argument_info> &ArgInfos,
-       unsigned local_mem_size = 0, bool isa_dbk = false);
-
-  ~BIKD() {
-    for (size_t i = 0; i < num_args; ++i) {
-      free(arg_info[i].name);
-      free(arg_info[i].type_name);
-    }
-    delete[] arg_info;
-    free (name);
-  }
-
-  BuiltinKernelId KernelId;
-};
+} BuiltinKernelId;
 
 #define BIKERNELS POCL_CDBI_LAST
-POCL_EXPORT extern BIKD pocl_BIDescriptors[BIKERNELS];
+POCL_EXPORT extern pocl_kernel_metadata_t pocl_BIDescriptors[BIKERNELS];
 
-#endif // #ifdef __cplusplus
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+POCL_EXPORT
+void pocl_init_builtin_kernel_metadata();
 
 POCL_EXPORT
 int pocl_setup_builtin_metadata(cl_device_id device, cl_program program,
                                 unsigned program_device_i);
 
 POCL_EXPORT
-int pocl_sanitize_builtin_kernel_name(cl_kernel kernel, char **saved_name);
+int pocl_sanitize_builtin_kernel_name(cl_kernel kernel, const char **saved_name);
 
 POCL_EXPORT
-int pocl_restore_builtin_kernel_name(cl_kernel kernel, char *saved_name);
+int pocl_restore_builtin_kernel_name(cl_kernel kernel, const char *saved_name);
 
 #ifdef __cplusplus
 }

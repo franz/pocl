@@ -162,7 +162,7 @@ set(POCL_DEVICES_SOURCES
   common.h  common.c
   pocl_local_size.h  pocl_local_size.c
   common_driver.h  common_driver.c
-  builtin_kernels.cc builtin_kernels.hh
+  builtin_kernels.c builtin_kernels.h
   spirv.hh  spirv_parser.hh  spirv_parser.cc
   cpuinfo.c  cpuinfo.h)
 

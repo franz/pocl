@@ -347,8 +347,8 @@ typedef enum
 #define ARGP_IS_LOCAL(a) (a->address_qualifier == CL_KERNEL_ARG_ADDRESS_LOCAL)
 
 typedef struct pocl_argument_info {
-  char* type_name;
-  char* name;
+  const char* type_name;
+  const char* name;
   cl_kernel_arg_address_qualifier address_qualifier;
   cl_kernel_arg_access_qualifier access_qualifier;
   cl_kernel_arg_type_qualifier type_qualifier;
@@ -1556,8 +1556,8 @@ typedef struct pocl_kernel_metadata_s
   cl_uint num_args;
   cl_uint num_locals;
   size_t *local_sizes;
-  char *name;
-  char *attributes;
+  const char *name;
+  const char *attributes;
   struct pocl_argument_info *arg_info;
   cl_bitfield has_arg_metadata;
   size_t reqd_wg_size[OPENCL_MAX_DIMENSION];
@@ -1593,6 +1593,8 @@ typedef struct pocl_kernel_metadata_s
      statically defined in the custom device driver, thus should not
      be freed. */
   cl_bitfield builtin_kernel;
+  /* enum BuiltinKernelId */
+  unsigned builtin_kernel_id;
   /* maximum global work size usable with the kernel.
    * Only applies to builtin kernels */
   size_t_3 builtin_max_global_work;
