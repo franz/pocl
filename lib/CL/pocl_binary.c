@@ -658,8 +658,11 @@ pocl_binary_deserialize_kernel_from_buffer (pocl_binary *b,
 
           BUFFER_READ (ai->type, uint32_t);
           BUFFER_READ (ai->type_size, uint32_t);
-          BUFFER_READ_STR (ai->name);
-          BUFFER_READ_STR (ai->type_name);
+          char *name, *type_name;
+          BUFFER_READ_STR (name);
+          BUFFER_READ_STR (type_name);
+          ai->name = name;
+          ai->type_name = type_name;
         }
 
     }

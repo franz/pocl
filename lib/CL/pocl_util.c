@@ -1491,20 +1491,14 @@ pocl_device_supports_builtin_kernel (cl_device_id dev, const char *kernel_name)
   if (dev->builtin_kernel_list == NULL)
     return 0;
 
-  char *temp = strdup (dev->builtin_kernel_list);
-  char *token;
-  char *rest = temp;
-
-  while ((token = strtok_r (rest, ";", &rest)))
+  for (unsigned i = 0; i < dev->num_builtin_kernels; ++i)
     {
-      if (strcmp (token, kernel_name) == 0)
+      if (strcmp (dev->builtin_kernels_with_version[i].name, kernel_name) == 0)
         {
-          free (temp);
           return 1;
         }
     }
 
-  free (temp);
   return 0;
 }
 
@@ -2657,7 +2651,8 @@ pocl_free_kernel_metadata (cl_program program, unsigned kernel_i)
           meta->data[j] = NULL; // TODO free data in driver callback
         }
   POCL_MEM_FREE (meta->data);
-  POCL_MEM_FREE (meta->local_sizes);
+  if (program->builtin_kernel_names == NULL)
+    POCL_MEM_FREE (meta->local_sizes);
   POCL_MEM_FREE (meta->build_hash);
 }
 

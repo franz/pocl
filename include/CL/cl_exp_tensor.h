@@ -1,26 +1,58 @@
 
 #ifndef OPENCL_EXP_TENSOR_H
 #define OPENCL_EXP_TENSOR_H
-#include <CL/opencl.h>
+#include <CL/cl.h>
 
 typedef cl_ulong cl_tensor_shape;
 typedef cl_uint cl_tensor_dim;
 typedef cl_uint cl_tensor_desc_type;
-typedef cl_uint cl_tensor_datatype;
 typedef cl_uint cl_tensor_layout_type;
+typedef cl_uint cl_tensor_layout_ml_type;
 
-// cl_tensor_desc_type
-#define CL_TENSOR_DESC_BASE 1
+// cl_tensor_datatype enum
+typedef enum
+{
+  CL_TENSOR_DTYPE_FP64,
+  CL_TENSOR_DTYPE_INT64,
+  CL_TENSOR_DTYPE_UINT64,
+  CL_TENSOR_DTYPE_FP32,
+  CL_TENSOR_DTYPE_INT32,
+  CL_TENSOR_DTYPE_UINT32,
+  CL_TENSOR_DTYPE_FP16,
+  CL_TENSOR_DTYPE_INT16,
+  CL_TENSOR_DTYPE_UINT16,
+  CL_TENSOR_DTYPE_FP8,
+  CL_TENSOR_DTYPE_INT8,
+  CL_TENSOR_DTYPE_UINT8,
+  CL_TENSOR_DTYPE_INT4,
+  CL_TENSOR_DTYPE_UINT4,
+  CL_TENSOR_DTYPE_UNKNOWN
+} cl_tensor_datatype;
 
-// cl_tensor_datatype
-#define CL_TENSOR_FLOAT 1
-#define CL_TENSOR_DOUBLE 2
-#define CL_TENSOR_INT 3
+typedef union
+{
+  cl_char c;
+  cl_short s;
+  cl_int i;
+  cl_long l;
+  cl_half h;
+  cl_float f;
+  cl_double d;
+  char raw[sizeof (cl_double)];
+} cl_tensor_datatype_union;
+
 // TODO: To be completed later.
 
 // cl_tensor_layout_type
-#define CL_TENSOR_LAYOUT_OPAQUE 1
-#define CL_TENSOR_LAYOUT_BLAS 2
+#define CL_TENSOR_LAYOUT_NONE 0
+#define CL_TENSOR_LAYOUT_BLAS 1
+#define CL_TENSOR_LAYOUT_ML 2
+
+// cl_tensor_layout_ml_type
+#define CL_TENSOR_LAYOUT_ML_NC 1
+#define CL_TENSOR_LAYOUT_ML_NCHW 2
+#define CL_TENSOR_LAYOUT_ML_NHWC 3
+#define CL_TENSOR_LAYOUT_ML_LAST 4
 
 // Additions to cl_mem_object_type
 
@@ -34,15 +66,17 @@ typedef cl_uint cl_tensor_layout_type;
 // * splitting large tensors to smaller ones.
 // * reshaping existing tensor to another.
 // * coercing data type of an existing tensor to other type of same size.
-#define CL_MEM_TENSOR_VIEW 0x8001
+// #define CL_MEM_TENSOR_VIEW 0x8001
+
+#define CL_MEM_MAX_TENSOR_RANK 7
 
 typedef struct _cl_tensor_desc
 {
-  cl_tensor_desc_type stype; // Must be CL_TENSOR_DESC_BASE
-  void *next;
-
-  // The rank of the tensor.
+  // The rank of the tensor. <= CL_MEM_MAX_TENSOR_RANK
   cl_uint rank;
+
+  // The element type of the tensor.
+  cl_tensor_datatype dtype;
 
   // The shape of the tensor described by an array. Describes number
   // of elements in the tensor dimensions starting with "outermost"
@@ -52,42 +86,27 @@ typedef struct _cl_tensor_desc
   //
   // Conditions:
   //
-  // * Must be non-NULL.
-  //
   // * Lenght of the array must be at least <rank> elements.
   //
   // * TBC: A dimension can be zero meaning the size is unspeficied. However,
   //   commands involing tensors must have fully specified shape.
-  const cl_tensor_shape *shape;
-
-  // The element type of the tensor.
-  cl_tensor_datatype dtype;
+  cl_tensor_shape shape[CL_MEM_MAX_TENSOR_RANK];
 
   // Optional data layout description. Must be NULL or one of
   // cl_tensor_layout_* structures in the below.
   //
-  // If NULL, cl{Enqueue,Command}{ImportFrom,ExportTo}Tensor must be
+  // If NULL, cl{Enqueue,Command}{Read,Write}Tensor must be
   // used for transferring data from or to tensor. If a pointer to the
   // tensor data is aquired (somehow), dereferencing that pointer is
   // undefined behavior.
   const void *layout;
-} cl_tensor_desc;
+  cl_tensor_layout_type layout_type;
 
-// All tensor layout descriptions start with the following common
-// initial sequence.
-typedef struct _cl_tensor_layout_base
-{
-  cl_tensor_layout_type stype;
-  // Vulkan style extension mechanism. Must be NULL if not used.
-  void *next;
-} cl_tensor_layout_base;
+} cl_tensor_desc;
 
 // Describes data layout similar to one used in BLAS APIs.
 typedef struct _cl_tensor_layout_blas
 {
-  cl_tensor_layout_type stype; // Must be set to CL_TENSOR_LAYOUT_BLAS.
-  void *next;
-
   // Leading tensor dimensions. This describes which elements along
   // tensor dimensions are laid out first in the memory. Tensor
   // coodrinates (tensor_coords = {x0, x1, ..., x2}) map to buffer
@@ -129,5 +148,10 @@ typedef struct _cl_tensor_layout_blas
   //size_t base_alignment;
 
 } cl_tensor_layout_blas;
+
+typedef struct _cl_tensor_layout_ml
+{
+  cl_tensor_layout_ml_type ml_type;
+} cl_tensor_layout_ml;
 
 #endif // OPENCL_EXP_TENSOR_H

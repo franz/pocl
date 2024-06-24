@@ -205,8 +205,9 @@ static int pocl_get_kernel_arg_module_metadata(llvm::Function *Kernel,
         } else if (meta_name == "kernel_arg_type") {
           assert(has_meta_for_every_arg && "kernel_arg_type meta incomplete");
           kernel_meta->has_arg_metadata |= POCL_HAS_KERNEL_ARG_TYPE_NAME;
-          current_arg->type_name = (char *)malloc(val.size() + 1);
-          std::strcpy(current_arg->type_name, val.c_str());
+          char *type_name = (char *)malloc(val.size() + 1);
+          std::strcpy(type_name, val.c_str());
+          current_arg->type_name = type_name;
         } else if (meta_name == "kernel_arg_base_type") {
           // may or may not be present even in SPIR
         } else if (meta_name == "kernel_arg_type_qual") {
@@ -223,8 +224,9 @@ static int pocl_get_kernel_arg_module_metadata(llvm::Function *Kernel,
         } else if (meta_name == "kernel_arg_name") {
           assert(has_meta_for_every_arg && "kernel_arg_name meta incomplete");
           kernel_meta->has_arg_metadata |= POCL_HAS_KERNEL_ARG_NAME;
-          current_arg->name = (char *)malloc(val.size() + 1);
-          std::strcpy(current_arg->name, val.c_str());
+          char *name = (char *)malloc(val.size() + 1);
+          std::strcpy(name, val.c_str());
+          current_arg->name = name;
         } else
           std::cout << "UNKNOWN opencl metadata name: " << meta_name
                     << std::endl;
@@ -447,7 +449,7 @@ static int pocl_get_kernel_arg_function_metadata(llvm::Function *Kernel,
 
     current_arg = &kernel_meta->arg_info[j];
     kernel_meta->has_arg_metadata |= POCL_HAS_KERNEL_ARG_TYPE_NAME;
-    current_arg->type_name = (char *)malloc(val.size() + 1);
+    char *type_name = (char *)malloc(val.size() + 1);
     if (current_arg->address_qualifier != CL_KERNEL_ARG_ADDRESS_PRIVATE) {
       current_arg->type_size = sizeof(void *);
     } else if (type_size_map.find(val) != type_size_map.end()) {
@@ -455,7 +457,8 @@ static int pocl_get_kernel_arg_function_metadata(llvm::Function *Kernel,
     } else {
       current_arg->type_size = 0;
     }
-    std::strcpy(current_arg->type_name, val.c_str());
+    std::strcpy(type_name, val.c_str());
+    current_arg->type_name = type_name;
   }
 
   // kernel_arg_type_qual
@@ -495,8 +498,9 @@ static int pocl_get_kernel_arg_function_metadata(llvm::Function *Kernel,
 
       current_arg = &kernel_meta->arg_info[j];
       kernel_meta->has_arg_metadata |= POCL_HAS_KERNEL_ARG_NAME;
-      current_arg->name = (char *)malloc(val.size() + 1);
-      std::strcpy(current_arg->name, val.c_str());
+      char *name = (char *)malloc(val.size() + 1);
+      std::strcpy(name, val.c_str());
+      current_arg->name = name;
     }
   }
   else {
@@ -792,9 +796,10 @@ int pocl_llvm_get_kernels_metadata(cl_program program, unsigned device_i) {
 
     std::string r = attrstr.str();
     if (r.size() > 0) {
-      meta->attributes = (char *)malloc(r.size() + 1);
-      std::memcpy(meta->attributes, r.c_str(), r.size());
-      meta->attributes[r.size()] = 0;
+      char *attrs = (char *)malloc(r.size() + 1);
+      std::memcpy(attrs, r.c_str(), r.size());
+      attrs[r.size()] = 0;
+      meta->attributes = attrs;
     } else
       meta->attributes = nullptr;
 

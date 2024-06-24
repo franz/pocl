@@ -44,6 +44,7 @@
 
 #include "common.h"
 #include "devices.h"
+#include "pocl_builtin_kernels.h"
 #include "pocl_cache.h"
 #include "pocl_debug.h"
 #include "pocl_export.h"
@@ -51,7 +52,6 @@
 #include "pocl_shared.h"
 #include "pocl_tracing.h"
 #include "pocl_util.h"
-#include "pocl_export.h"
 #include "pocl_version.h"
 
 #include "utlist_addon.h"
@@ -556,6 +556,8 @@ pocl_init_devices ()
                       "Cache directory initialization failed");
 
   pocl_event_tracing_init ();
+
+  pocl_init_builtin_kernel_metadata ();
 
 #ifdef HAVE_SLEEP
   int delay = pocl_get_int_option ("POCL_STARTUP_DELAY", 0);
