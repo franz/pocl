@@ -89,7 +89,7 @@ CL_API_SUFFIX__VERSION_1_2
     goto ERROR;
 
   program->num_builtin_kernels = num_kernels;
-  program->builtin_kernel_names = builtin_names;
+  program->builtin_kernel_names = (const char **)builtin_names;
   program->concated_builtin_names = strdup (kernel_names);
 
   if (errcode_ret != NULL)

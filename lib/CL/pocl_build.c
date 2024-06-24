@@ -408,7 +408,7 @@ pocl_calculate_kernel_hash (cl_program program, unsigned kernel_i,
   SHA1_CTX hash_ctx;
   pocl_SHA1_Init (&hash_ctx);
 
-  char *n = program->kernel_meta[kernel_i].name;
+  const char *n = program->kernel_meta[kernel_i].name;
   assert (n != NULL && program->build_hash[device_i] != NULL);
   pocl_SHA1_Update (&hash_ctx, (uint8_t *)program->build_hash[device_i],
                     sizeof (SHA1_digest_t));
@@ -432,7 +432,7 @@ free_meta (cl_program program)
       for (i = 0; i < program->num_kernels; i++)
         {
           pocl_kernel_metadata_t *meta = &program->kernel_meta[i];
-          if (meta->builtin_kernel)
+          if (meta->builtin_kernel_id)
             continue;
           pocl_free_kernel_metadata (program, i);
         }
@@ -791,18 +791,39 @@ compile_and_link_program(int compile_program,
                                   REQUIRES_CR_SQRT_DIV_ERR " %s\n",
                                   device->short_name);
 
-      /* clCreateProgramWithBuiltinKernels */
-      if (program->builtin_kernel_names)
+      /* clCreateProgramWithDefinedBuiltinKernels */
+      if (program->builtin_kernel_attributes)
         {
-          if (device->ops->build_builtin)
-            {
-              error = device->ops->build_builtin (program, device_i);
-              if (error != CL_SUCCESS)
-                APPEND_TO_BUILD_LOG_GOTO (CL_BUILD_PROGRAM_FAILURE,
-                                          "Device %s failed to build the "
-                                          "program with builtin kernels\n",
-                                          device->long_name);
-            }
+          if (device->ops->build_defined_builtin == NULL)
+            APPEND_TO_BUILD_LOG_GOTO (
+              build_error_code,
+              "%s device's driver does not support building "
+              "programs with defined builtin kernels (DBKs)\n",
+              device->long_name);
+
+          error = device->ops->build_defined_builtin (program, device_i);
+          if (error != CL_SUCCESS)
+            APPEND_TO_BUILD_LOG_GOTO (CL_BUILD_PROGRAM_FAILURE,
+                                      "Device %s failed to build the "
+                                      "program with DBKs\n",
+                                      device->long_name);
+        }
+      /* clCreateProgramWithBuiltinKernels */
+      else if (program->builtin_kernel_names)
+        {
+          if (device->ops->build_builtin == NULL)
+            APPEND_TO_BUILD_LOG_GOTO (
+              build_error_code,
+              "%s device's driver does not "
+              "support building programs with builtin kernels\n",
+              device->long_name);
+
+          error = device->ops->build_builtin (program, device_i);
+          if (error != CL_SUCCESS)
+            APPEND_TO_BUILD_LOG_GOTO (CL_BUILD_PROGRAM_FAILURE,
+                                      "Device %s failed to build the "
+                                      "program with builtin kernels\n",
+                                      device->long_name);
         }
       /* only link the program/library */
       else if (!compile_program && link_program)
