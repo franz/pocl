@@ -1050,6 +1050,25 @@ endif()
 
 ######################################################################################
 
+if(ENABLE_HOST_CPU_DEVICES)
+  if(PKG_CONFIG_EXECUTABLE)
+    pkg_check_modules(LIBXSMM IMPORTED_TARGET libxsmm>=1.15)
+    if(NOT LIBXSMM_FOUND)
+    pkg_check_modules(LIBXSMM IMPORTED_TARGET libxsmm-static>=1.15)
+    endif()
+    if(NOT LIBXSMM_FOUND)
+    pkg_check_modules(LIBXSMM IMPORTED_TARGET libxsmm-noblas>=1.15)
+    endif()
+  endif()
+  if(LIBXSMM_FOUND)
+    set(HAVE_LIBXSMM 1)
+  else()
+    message(STATUS "LIBXSMM not found, disabled")
+  endif()
+endif()
+
+######################################################################################
+
 if(NOT DEFINED DEFAULT_ENABLE_ICD)
 
 if (MSVC)

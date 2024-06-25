@@ -55,6 +55,10 @@
 #include "pocl_llvm.h"
 #endif
 
+#ifdef HAVE_LIBXSMM
+#include <libxsmm.h>
+#endif
+
 typedef struct
 {
   /* List of commands ready to be executed */
@@ -166,6 +170,10 @@ unsigned int
 pocl_basic_probe(struct pocl_device_ops *ops)
 {
   int env_count = pocl_device_get_env_count(ops->device_name);
+
+#ifdef HAVE_LIBXSMM
+  libxsmm_init(void);
+#endif
 
   /* for backwards compatibility */
   if (env_count <= 0)

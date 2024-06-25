@@ -129,6 +129,21 @@ pocl_cpu_init_common (cl_device_id device)
       device->max_num_sub_groups = device->max_work_group_size / 32;
     }
 
+#ifdef HAVE_LIBXSMM
+  if (dev->ops->build_builtin == pocl_driver_build_opencl_builtins)
+    {
+      POCL_MEM_FREE (dev->builtin_kernel_list);
+      dev->builtin_kernel_list
+          = strdup ("pocl.add.i8;"
+                    "org.khronos.openvx.scale_image.nn.u8;"
+                    "org.khronos.openvx.scale_image.bl.u8;"
+                    "org.khronos.openvx.tensor_convert_depth.wrap.u8.f32;"
+                    "khr_gemm;"
+                    "khr_matmul;");
+      dev->num_builtin_kernels = 6;
+    }
+#endif
+
   /* 0 is the host memory shared with all drivers that use it */
   device->global_mem_id = 0;
 

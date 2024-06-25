@@ -35,8 +35,12 @@ add_pocl_device_library(pocl-devices-pthread ${SOURCES})
 
 if(ENABLE_LOADABLE_DRIVERS)
   target_link_libraries(pocl-devices-pthread PRIVATE pocl-devices-basic ${PTHREAD_LIBRARY})
+  if(HAVE_LIBXSMM)
+    target_link_libraries(pocl-devices-pthread PRIVATE PkgConfig::LIBXSMM)
+  endif()
 endif()
 
 if(ENABLE_HOST_CPU_DEVICES_OPENMP)
   target_link_libraries(pocl-devices-pthread PRIVATE OpenMP::OpenMP_C)
 endif()
+
