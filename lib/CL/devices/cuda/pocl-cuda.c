@@ -26,7 +26,7 @@
 
 #include "config.h"
 
-#include "builtin_kernels.h"
+#include "pocl_builtin_kernels.h"
 #include "common.h"
 #include "common_driver.h"
 #include "devices.h"

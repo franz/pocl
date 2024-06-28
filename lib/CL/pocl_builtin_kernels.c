@@ -1,5 +1,5 @@
 
-#include "builtin_kernels.h"
+#include "pocl_builtin_kernels.h"
 
 #include <string.h>
 
@@ -488,4 +488,22 @@ int pocl_restore_builtin_kernel_name(cl_kernel kernel, const char *saved_name) {
   kernel->meta->name = saved_name;
   kernel->name = kernel->meta->name;
   return 0;
+}
+
+int pocl_validate_defined_builtin_attributes(BuiltinKernelId kernel_id,
+                                             const void *kernel_attributes)
+{
+
+}
+
+void *pocl_copy_defined_builtin_attributes(BuiltinKernelId kernel_id,
+                                           const void *kernel_attributes)
+{
+
+}
+
+int pocl_release_defined_builtin_attributes(BuiltinKernelId kernel_id,
+                                            void *kernel_attributes)
+{
+
 }

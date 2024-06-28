@@ -39,8 +39,6 @@
 // for SPIR-V handling
 #include "pocl_cache.h"
 
-// sanitize kernel name
-#include "builtin_kernels.h"
 #include "pocl_workgroup_func.h"
 
 int pocl_setup_builtin_metadata (cl_device_id device, cl_program program,

@@ -32,7 +32,7 @@
 #include "tce_common.h"
 #include "utlist.h"
 
-#include "builtin_kernels.h"
+#include "pocl_builtin_kernels.h"
 #include "common_driver.h"
 #include "pocl_cache.h"
 #include "common_driver.h"

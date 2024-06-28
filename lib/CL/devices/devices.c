@@ -53,7 +53,7 @@
 #include "pocl_util.h"
 #include "pocl_export.h"
 #include "pocl_version.h"
-#include "builtin_kernels.h"
+#include "pocl_builtin_kernels.h"
 
 #include "utlist_addon.h"
 

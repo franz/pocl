@@ -4,15 +4,62 @@
 
 #include "cl_exp_tensor.h"
 
-#define CL_DBK_UNAVAILABLE 0x8101
-#define CL_DBK_INVALID_ATTRIBUTE 0x8102
-#define CL_DBK_INVALID_RANK 0x8103
-#define CL_DBK_INVALID_SHAPE 0x8104
-#define CL_DBK_INVALID_DATATYPE 0x8105
+#define CL_INVALID_DBK_ID 0x8101
+#define CL_INVALID_DBK_ATTRIBUTE 0x8102
+#define CL_INVALID_DBK_RANK 0x8103
+#define CL_INVALID_DBK_SHAPE 0x8104
+#define CL_INVALID_DBK_DATATYPE 0x8105
 
 typedef cl_properties cl_dbk_properties;
 
-enum cl_dbk_property
+typedef enum {
+  // CD = custom device, BI = built-in
+  POCL_CDBI_COPY_I8 = 0,
+  POCL_CDBI_ADD_I32 = 1,
+  POCL_CDBI_MUL_I32 = 2,
+  POCL_CDBI_LEDBLINK = 3,
+  POCL_CDBI_COUNTRED = 4,
+  POCL_CDBI_DNN_CONV2D_RELU_I8 = 5,
+  POCL_CDBI_SGEMM_LOCAL_F32 = 6,
+  POCL_CDBI_SGEMM_TENSOR_F16F16F32_SCALE = 7,
+  POCL_CDBI_SGEMM_TENSOR_F16F16F32 = 8,
+  POCL_CDBI_ABS_F32 = 9,
+  POCL_CDBI_DNN_DENSE_RELU_I8 = 10,
+  POCL_CDBI_MAXPOOL_I8 = 11,
+  POCL_CDBI_ADD_I8 = 12,
+  POCL_CDBI_MUL_I8 = 13,
+  POCL_CDBI_ADD_I16 = 14,
+  POCL_CDBI_MUL_I16 = 15,
+  POCL_CDBI_STREAMOUT_I32 = 16,
+  POCL_CDBI_STREAMIN_I32 = 17,
+  POCL_CDBI_VOTE_U32 = 18,
+  POCL_CDBI_VOTE_U8 = 19,
+  POCL_CDBI_DNN_CONV2D_NCHW_F32 = 20,
+  POCL_CDBI_OPENVX_SCALEIMAGE_NN_U8 = 21,
+  POCL_CDBI_OPENVX_SCALEIMAGE_BL_U8 = 22,
+  POCL_CDBI_OPENVX_TENSORCONVERTDEPTH_WRAP_U8_F32 = 23,
+  POCL_CDBI_OPENVX_MINMAXLOC_R1_U8 = 24,
+  POCL_CDBI_SOBEL3X3_U8 = 25,
+  POCL_CDBI_PHASE_U8 = 26,
+  POCL_CDBI_MAGNITUDE_U16 = 27,
+  POCL_CDBI_ORIENTED_NONMAX_U16 = 28,
+  POCL_CDBI_CANNY_U8 = 29,
+  POCL_CDBI_STREAM_MM2S_P512 = 30,
+  POCL_CDBI_STREAM_S2MM_P512 = 31,
+  POCL_CDBI_BROADCAST_1TO2_P512 = 32,
+  POCL_CDBI_SOBEL3X3_P512 = 33,
+  POCL_CDBI_PHASE_P512 = 34,
+  POCL_CDBI_MAGNITUDE_P512 = 35,
+  POCL_CDBI_ORIENTED_NONMAX_P512 = 36,
+  POCL_CDBI_GAUSSIAN3X3_P512 = 37,
+  POCL_CDBI_DBK_KHR_GEMM = 38,
+  POCL_CDBI_DBK_KHR_MATMUL = 39,
+  POCL_CDBI_LAST,
+  POCL_CDBI_JIT_COMPILER = 0xFFFF
+} BuiltinKernelId;
+
+
+typedef enum
 {
   // Maximum relative error in ULPs allowed for the results respect to
   // infinitely precise result.
@@ -37,7 +84,7 @@ enum cl_dbk_property
   //
   // Drivers may ignore this property, meaning the behavior is not guaranteed.
   CL_DBK_PROPERTY_ALLOW_FTZ
-};
+} cl_dbk_property;
 
 typedef cl_kernel (CL_API_CALL *clCreateBuiltinKernelWithAttributesEXP_fn) (
     cl_program prog, const char *kernel_name, const void *kernel_attributes,

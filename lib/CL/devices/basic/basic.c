@@ -24,7 +24,6 @@
 */
 
 #include "basic.h"
-#include "builtin_kernels.h"
 #include "common.h"
 #include "config.h"
 #include "config2.h"
@@ -32,6 +31,7 @@
 #include "devices.h"
 #include "pocl_local_size.h"
 #include "pocl_util.h"
+#include "pocl_builtin_kernels.h"
 #include "topology/pocl_topology.h"
 #include "utlist.h"
 
