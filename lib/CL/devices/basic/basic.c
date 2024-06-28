@@ -125,6 +125,7 @@ pocl_basic_init_device_ops(struct pocl_device_ops *ops)
   ops->build_poclbinary = pocl_driver_build_poclbinary;
   ops->compile_kernel = pocl_basic_compile_kernel;
   ops->build_builtin = pocl_driver_build_opencl_builtins;
+  ops->supports_dbk = pocl_basic_supports_dbk;
 
   ops->join = pocl_basic_join;
   ops->submit = pocl_basic_submit;
@@ -881,3 +882,198 @@ pocl_basic_set_kernel_exec_info_ext (cl_device_id dev,
       return CL_INVALID_VALUE;
     }
 }
+
+#ifdef HAVE_LIBXSMM
+int pocl_cpu_validate_khr_gemm(cl_bool TransA, cl_bool TransB,
+                               const cl_tensor_desc *TenA,
+                               const cl_tensor_desc *TenB,
+                               const cl_tensor_desc *TenCIOpt,
+                               const cl_tensor_desc *TenCOut,
+                               const cl_tensor_datatype_union *Alpha,
+                               const cl_tensor_datatype_union *Beta)
+{
+  // TODO: We probably need to have support for mixed input/output
+  // precisions to be able to fit results of large, low precision input
+  // matrices. precision inputs. E.g.
+  //
+  //  * i8 x i8   --> i32
+  //  * f16 x f16 --> f32
+  POCL_RETURN_ERROR_ON ((TenA->dtype != TenCOut->dtype),
+                        CL_INVALID_DBK_DATATYPE,
+                        "Unsupported datatype conversion "
+                        "between Input & Output tensors\n");
+
+  // TODO: extend support for other data types.
+  POCL_RETURN_ERROR_ON ((TenA->dtype != CL_TENSOR_FP32),
+                        CL_INVALID_DBK_DATATYPE,
+                        "Unimplemented datatype support."
+                        "CPU supports only FP32 currently\n");
+
+  // TODO: check validity of data layouts of the tensors. Now assume
+  // they are correct and they are using BLAS-like layout.
+  if (Alpha) {
+    POCL_RETURN_ERROR_ON(Alpha->f != 1.0f,
+                         CL_INVALID_DBK_ATTRIBUTE,
+                         "CPU supports only Alpha == 1.0\n");
+  }
+  if (Beta) {
+    POCL_RETURN_ERROR_ON((Beta->f != 0.0f && Beta->f != 1.0f),
+                         CL_INVALID_DBK_ATTRIBUTE,
+                         "CPU supports only Beta == 0.0 or 1.0\n");
+  }
+  return CL_SUCCESS;
+}
+#endif
+
+int pocl_basic_supports_dbk (cl_device_id device,
+                           BuiltinKernelId kernel_id,
+                           const void *kernel_attributes)
+{
+#ifdef HAVE_LIBXSMM
+  // the following code checks for LIBXSMM specific requirements on Tensors
+
+  return pocl_validate_dbk_attributes(kernel_id, kernel_attributes,
+                                      pocl_cpu_validate_khr_gemm);
+#else
+  POCL_RETURN_ERROR_ON(1, CL_UNSUPPORTED_DBK,
+                       "The CPU driver must be compiled with libxsmm "
+                       "to support tensor DBKs\n");
+#endif
+}
+
+#ifdef HAVE_LIBXSMM
+
+static cl_bool tensor_is_blas_row_major(const cl_tensor_desc *A) {
+  assert(A);
+  assert(A->layout && "Does not have data layout!");
+  assert(A->layout_type == CL_TENSOR_LAYOUT_BLAS &&
+         "The method must not be called for tensors with non-BLAS data layouts");
+  const cl_tensor_layout_blas *BL = (const cl_tensor_layout_blas *)A->layout;
+  assert(A->rank >= 2 && "Not a (batched) matrix!");
+
+  return BL->leading_dims[0] == (A->rank - 1u) ? CL_TRUE : CL_FALSE;
+}
+
+static unsigned tensor_get_trailing_dim(const cl_tensor_desc *A,
+                                        const cl_tensor_layout_blas *BL) {
+  assert(A);
+  assert((A->rank < (sizeof(unsigned)*8)) &&
+         "Too many dimensions for the bitset.");
+
+  unsigned DimSet = (1u << A->rank) - 1;
+  for (unsigned I = 0; I < A->rank - 1; I++)
+    DimSet &= ~(1u << BL->leading_dims[I]);
+
+  assert(__builtin_popcount(DimSet) == 1 && "Invalid data layout?");
+  unsigned TrailingDim = __builtin_ctz(DimSet);
+  assert(TrailingDim < A->rank);
+  return TrailingDim;
+
+}
+
+
+static size_t tensor_get_blas_stride_in_elements(const cl_tensor_desc *A,
+                                                 unsigned Dim) {
+  assert(A);
+  assert(A->rank >= 2);
+  assert(A->layout && "Does not have data layout!");
+  assert(A->layout_type == CL_TENSOR_LAYOUT_BLAS &&
+         "The method must not be called for tensors with non-BLAS data layouts");
+  const cl_tensor_layout_blas *BL = (const cl_tensor_layout_blas *)A->layout;
+  if (Dim < (A->rank - 1))
+    return BL->leading_strides[Dim];
+  else
+    return BL->leading_strides[A->rank-1] * tensor_get_trailing_dim(A, BL);
+}
+
+int pocl_cpu_execute_dbk()
+{
+    size_t Lda = TenA.getBlasStrideInElts(0);
+    size_t Ldb = TenB.getBlasStrideInElts(0);
+    size_t Ldc = CO.getBlasStrideInElts(0);
+    size_t ABatchStrideInElts = TenA.getBlasStrideInElts(1);
+    size_t BBatchStrideInElts = TenB.getBlasStrideInElts(1);
+    size_t CBatchStrideInElts = CO.getBlasStrideInElts(1);
+
+    // libxsmm expects data in column-major format but we can feed it
+    // row-major data by transposing the inputs and and the output.
+    bool LibTransposeA = TransposeA ^ A.isBlasRowMajor();
+    bool LibTransposeB = TransposeB ^ B.isBlasRowMajor();
+    int Flags = (LibTransposeA ? LIBXSMM_GEMM_FLAG_TRANS_A : 0) |
+                (LibTransposeB ? LIBXSMM_GEMM_FLAG_TRANS_B : 0);
+
+    std::function<void(float *Dst, const _cl_command_node &Cmd, size_t BatchNum)>
+        LoadCBatch;
+    std::function<void(float *Dst, const _cl_command_node &Cmd, size_t BatchNum)>
+        StoreCBatch;
+
+    if (CIOpt && Beta != 0.0f) {
+      if (CIOpt->isBlasRowMajor()) {
+        // Need to convert C input to column-major.
+        LoadCBatch = [=](float *Batch, const _cl_command_node &Cmd,
+                         size_t BatchNum) -> void {
+          auto *CIData = getBufferDataAs<float *>(Cmd, 2);
+          auto *Src = &CIData[BatchNum * CBatchStrideInElts];
+          libxsmm_otrans(Batch, Src, sizeof(float), COm, COn, Ldc, COm);
+        };
+      } else {
+        LoadCBatch = [=](float *Batch, const _cl_command_node &Cmd,
+                         size_t BatchNum) -> void {
+          auto *CIData = getBufferDataAs<float *>(Cmd, 2);
+          auto *Src = &CIData[BatchNum * CBatchStrideInElts];
+          libxsmm_matcopy(Batch, Src, sizeof(float), COm, COn, Ldc, COm);
+        };
+      }
+    } else {
+      LoadCBatch = [=](float *Batch, const _cl_command_node &Cmd,
+                       size_t BatchNum) -> void {
+        // Zero-initialize.
+        libxsmm_matcopy(Batch, nullptr, sizeof(float), COm, COn, Ldc, COm);
+      };
+    }
+
+    unsigned COKernelArgIdx = 2 + !!CIOpt;
+    if (CO.isBlasRowMajor()) {
+      // Results are always in column-major.
+      StoreCBatch = [=](float *Batch, const _cl_command_node &Cmd,
+                        size_t BatchNum) -> void {
+        auto *COData = getBufferDataAs<float *>(Cmd, COKernelArgIdx);
+        auto *Dst = &COData[BatchNum * CBatchStrideInElts];
+        libxsmm_otrans(Dst, Batch, sizeof(float), COm, COn, COm, Ldc);
+      };
+    } else {
+      StoreCBatch = [=](float *Batch, const _cl_command_node &Cmd,
+                        size_t BatchNum) -> void {
+        auto *COData = getBufferDataAs<float *>(Cmd, COKernelArgIdx);
+        auto *Dst = &COData[BatchNum * CBatchStrideInElts];
+        libxsmm_matcopy(Dst, Batch, sizeof(float), COm, COn, COm, Ldc);
+      };
+    }
+
+    if (auto MatmulInstance = libxsmm_mmfunction<float>(Flags, COm, COn, Ak, Lda,
+                                                        Ldb, COm, Alpha, Beta)) {
+      auto *RunnerData = new std::function<void(_cl_command_node &)>(
+          [=](_cl_command_node &Cmd) -> void {
+            auto *AData = getBufferDataAs<float *>(Cmd, 0);
+            auto *BData = getBufferDataAs<float *>(Cmd, 1);
+
+            // TODO: Optimization: There is codegen for batched matmul
+            //       in libxsmm we could use.
+            std::vector<float> CTemp(COm * COn, 0.0f);
+            for (size_t Batch = 0; Batch < BatchSize; Batch++) {
+              LoadCBatch(CTemp.data(), Cmd, Batch);
+              MatmulInstance(&AData[Batch * ABatchStrideInElts],
+                             &BData[Batch * BBatchStrideInElts], CTemp.data());
+              StoreCBatch(CTemp.data(), Cmd, Batch);
+            }
+          });
+
+//      Kernel->custom_runner = runDBK;
+//      Kernel->custom_runner_data = static_cast<void *>(RunnerData);
+//      Kernel->release_custom_runner_data = releaseDBK;
+//      pocl_program_insert_kernel_thsafe(Program, Kernel);
+
+    }
+  return CL_SUCCESS;
+}
+#endif

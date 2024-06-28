@@ -10,6 +10,12 @@
 #define CL_INVALID_DBK_SHAPE 0x8104
 #define CL_INVALID_DBK_DATATYPE 0x8105
 
+// TODO numeric values
+#define CL_INVALID_TENSOR_LAYOUT -2309
+#define CL_INVALID_TENSOR_RANK -2310
+#define CL_INVALID_TENSOR_SHAPE -2311
+#define CL_UNSUPPORTED_DBK -2312
+
 typedef cl_properties cl_dbk_properties;
 
 typedef enum {
@@ -58,7 +64,7 @@ typedef enum {
   POCL_CDBI_JIT_COMPILER = 0xFFFF
 } BuiltinKernelId;
 
-
+#define CL_MAX_DBK_PROPERTIES 64
 typedef enum
 {
   // Maximum relative error in ULPs allowed for the results respect to
@@ -103,17 +109,13 @@ clCreateBuiltinKernelWithAttributesEXP (cl_program prog,
 // tensor shapes accordingly.
 typedef struct _cl_dbk_attributes_khr_gemm
 {
-  const cl_tensor_desc *a;
-  const cl_tensor_desc *b;
-  const cl_tensor_desc *c_in;
-  const cl_tensor_desc *c_out;
-  cl_int trans_a;
-  cl_int trans_b;
-  // Pointers to scaler values. Type depends on the tensor operands. E.g.
+  cl_tensor_desc a, b, c_in, c_out;
+  cl_bool trans_a, trans_b;
+  // Union, real Type depends on the tensor operands. E.g.
   // CL_TENSOR_FLOAT --> cl_float, CL_TENSOR_DOUBLE --> cl_double.
-  const void *alpha;
-  const void *beta;
-  const cl_dbk_properties *kernel_props;
+  cl_tensor_datatype_union alpha, beta;
+  // 0-terminated array
+  cl_dbk_properties kernel_props[CL_MAX_DBK_PROPERTIES];
 } cl_dbk_attributes_khr_gemm;
 
 // Name: "khr_matmul" Matrix multiplication. Alias for khr_gemm with
@@ -123,12 +125,11 @@ typedef struct _cl_dbk_attributes_khr_gemm
 // tensor shapes accordingly.
 typedef struct _cl_dbk_attributes_khr_matmul
 {
-  const cl_tensor_desc *a;
-  const cl_tensor_desc *b;
-  const cl_tensor_desc *c;
+  cl_tensor_desc a, b, c;
   cl_int trans_a;
   cl_int trans_b;
-  const cl_dbk_properties *kernel_props;
+  // 0-terminated array
+  cl_dbk_properties kernel_props[CL_MAX_DBK_PROPERTIES];
 } cl_dbk_attributes_khr_matmul;
 
 #endif // OPENCL_EXP_DEFINED_BUILTIN_KERNELS

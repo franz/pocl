@@ -78,8 +78,8 @@ CL_API_SUFFIX__VERSION_1_2
       POCL_GOTO_ERROR_COND ((kernel_names[i] == NULL), CL_INVALID_VALUE);
       POCL_GOTO_ERROR_COND ((kernel_ids[i] >= POCL_CDBI_LAST),
                             CL_INVALID_VALUE);
-      errcode = pocl_validate_defined_builtin_attributes (
-        kernel_ids[i], kernel_attributes[i]);
+      errcode = pocl_validate_dbk_attributes (
+        kernel_ids[i], kernel_attributes[i], NULL);
       POCL_GOTO_ERROR_ON ((errcode != CL_SUCCESS), CL_INVALID_ARG_VALUE,
                           "DefinedBuiltinKernel attributes for kernel %u "
                           "are invalid",

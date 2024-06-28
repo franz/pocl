@@ -20,6 +20,16 @@ typedef cl_uint cl_tensor_layout_ml_type;
 #define CL_TENSOR_INT64 13
 #define CL_TENSOR_INT4 14
 
+typedef union {
+  cl_char c;
+  cl_short s;
+  cl_int i;
+  cl_long l;
+  cl_float f;
+  cl_double d;
+  char raw[sizeof(cl_double)];
+} cl_tensor_datatype_union;
+
 // TODO: To be completed later.
 
 // cl_tensor_layout_type
@@ -32,11 +42,6 @@ typedef cl_uint cl_tensor_layout_ml_type;
 #define CL_TENSOR_LAYOUT_ML_NCHW 2
 #define CL_TENSOR_LAYOUT_ML_NHWC 3
 #define CL_TENSOR_LAYOUT_ML_LAST 4
-
-// TODO numeric values
-#define CL_INVALID_TENSOR_LAYOUT -2309
-#define CL_INVALID_TENSOR_RANK -2310
-#define CL_INVALID_TENSOR_SHAPE -2311
 
 // Additions to cl_mem_object_type
 

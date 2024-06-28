@@ -490,20 +490,159 @@ int pocl_restore_builtin_kernel_name(cl_kernel kernel, const char *saved_name) {
   return 0;
 }
 
-int pocl_validate_defined_builtin_attributes(BuiltinKernelId kernel_id,
-                                             const void *kernel_attributes)
+static int pocl_validate_khr_gemm(cl_bool TransA, cl_bool TransB,
+                                  const cl_tensor_desc *TenA,
+                                  const cl_tensor_desc *TenB,
+                                  const cl_tensor_desc *TenCIOpt,
+                                  const cl_tensor_desc *TenCOut,
+                                  const cl_tensor_datatype_union *Alpha,
+                                  const cl_tensor_datatype_union *Beta)
 {
+    POCL_RETURN_ERROR_COND((TenA == NULL), CL_INVALID_DBK_ATTRIBUTE);
+    POCL_RETURN_ERROR_COND((TenB == NULL), CL_INVALID_DBK_ATTRIBUTE);
+    POCL_RETURN_ERROR_COND((TenCOut == NULL), CL_INVALID_DBK_ATTRIBUTE);
 
+    if (Alpha) {
+      POCL_RETURN_ERROR_COND (Alpha->l == 0, CL_INVALID_DBK_ATTRIBUTE);
+    }
+    // beta can be 0
+    //POCL_RETURN_ERROR_COND (Beta->l == 0, CL_INVALID_DBK_ATTRIBUTE);
+
+    // TBC: 4D+ tensor could be supported by treating the additional
+    //      dimensions as batch dimensions - but it might not be
+    //      worthwhile due the extra work to support them and processing
+    //      overhead they may impose.
+    POCL_RETURN_ERROR_ON((TenA->rank > 3), CL_INVALID_DBK_RANK,
+                         "Unsupported high-degree tensors.\n");
+    POCL_RETURN_ERROR_ON((TenA->rank < 2), CL_INVALID_DBK_RANK,
+                         "Rank of A/B tensors must be in {2,3}.\n");
+
+    POCL_RETURN_ERROR_ON((TenA->rank != TenB->rank), CL_INVALID_DBK_RANK,
+                         "Rank mismatch between A and B\n");
+    POCL_RETURN_ERROR_ON((TenB->rank != TenCOut->rank), CL_INVALID_DBK_RANK,
+                         "Rank mismatch between A/B and COut\n");
+
+    POCL_RETURN_ERROR_ON((TenCIOpt != NULL && pocl_tensor_shape_equals(TenCIOpt, TenCOut) == CL_FALSE),
+                         CL_INVALID_DBK_SHAPE, "Tensor shape mismatch between C_in and C_out.");
+
+    size_t BatchDims = TenA->rank - 2;
+
+    size_t Temp;
+    // CO[b][m][n] = sigma_over_m_n_k(A[b][m][k] * B[b][k][n]) + CI[b][m][n].
+    size_t Am = TenA->shape[BatchDims + 0];
+    size_t Ak = TenA->shape[BatchDims + 1];
+    if (TransA) { Temp = Am ; Am = Ak ; Ak = Temp; }
+
+    size_t Bk = TenB->shape[BatchDims + 0];
+    size_t Bn = TenB->shape[BatchDims + 1];
+    if (TransB) { Temp = Bk ; Bk = Bn ; Bn = Temp; }
+
+    size_t COm = TenCOut->shape[BatchDims + 0];
+    size_t COn = TenCOut->shape[BatchDims + 1];
+
+    POCL_RETURN_ERROR_COND((Ak != Bk), CL_INVALID_DBK_ATTRIBUTE);
+    POCL_RETURN_ERROR_COND((Am != COm), CL_INVALID_DBK_ATTRIBUTE);
+    POCL_RETURN_ERROR_COND((Bn != COn), CL_INVALID_DBK_ATTRIBUTE);
+
+    // Check batch dimensions match.
+    if (TenA->rank == 3) {
+      size_t BatchSize = TenA->shape[0];
+      POCL_RETURN_ERROR_ON ((BatchSize > 1 && (BatchSize != TenB->shape[0]
+                                               || TenB->shape[0] != TenCOut->shape[0])),
+          CL_INVALID_DBK_SHAPE, "Batch size mismatch.\n");
+
+      POCL_RETURN_ERROR_ON ((BatchSize > 1 && TenCIOpt
+                             && TenCIOpt->shape[0] != TenCOut->shape[0]),
+          CL_INVALID_DBK_SHAPE, "Batch size mismatch.\n");
+    }
+
+    // Check datatypes
+    POCL_RETURN_ERROR_ON ((TenA->dtype != TenB->dtype),
+                          CL_INVALID_DBK_DATATYPE,
+                          "datatype mismatch between A and B.\n");
+
+    POCL_RETURN_ERROR_ON (TenCIOpt && (TenCIOpt->dtype != TenCOut->dtype),
+                          CL_INVALID_DBK_DATATYPE,
+                          "datatype mismatch between C_ind and C_out\n");
+
+    // TODO: check validity of data layouts of the tensors. Now assumes they're ok
+
+    return CL_SUCCESS;
+}
+
+
+int pocl_validate_dbk_attributes(BuiltinKernelId kernel_id,
+                                 const void *kernel_attributes,
+                                 pocl_validate_khr_gemm_callback_t GemmCB)
+{
+  if (GemmCB == NULL)
+    GemmCB = pocl_validate_khr_gemm;
+
+  switch (kernel_id)
+  {
+    case POCL_CDBI_DBK_KHR_GEMM:
+    {
+      const cl_dbk_attributes_khr_gemm *Attrs =
+          (const cl_dbk_attributes_khr_gemm *)kernel_attributes;
+
+      return GemmCB(Attrs->trans_a, Attrs->trans_b,
+                    &Attrs->a, &Attrs->b, &Attrs->c_in,
+                    &Attrs->c_out, &Attrs->alpha, &Attrs->beta);
+    }
+    case POCL_CDBI_DBK_KHR_MATMUL:
+    {
+      const cl_dbk_attributes_khr_matmul *Attrs =
+          (const cl_dbk_attributes_khr_matmul *)kernel_attributes;
+
+      return GemmCB(Attrs->trans_a, Attrs->trans_b,
+                    &Attrs->a, &Attrs->b, NULL,
+                    &Attrs->c, NULL, NULL);
+
+    }
+    default: break;
+  }
+  POCL_RETURN_ERROR_ON(1, CL_INVALID_DBK_ID,
+                       "Unknown builtin kernel ID: %u", kernel_id);
 }
 
 void *pocl_copy_defined_builtin_attributes(BuiltinKernelId kernel_id,
                                            const void *kernel_attributes)
 {
-
+  switch (kernel_id)
+  {
+    case POCL_CDBI_DBK_KHR_GEMM:
+    {
+      cl_dbk_attributes_khr_gemm *attrs = malloc(sizeof(cl_dbk_attributes_khr_gemm));
+      if (attrs == NULL) return NULL;
+      memcpy(attrs, kernel_attributes, sizeof(cl_dbk_attributes_khr_gemm));
+      return attrs;
+    }
+    case POCL_CDBI_DBK_KHR_MATMUL:
+    {
+      cl_dbk_attributes_khr_matmul *attrs = malloc(sizeof(cl_dbk_attributes_khr_matmul));
+      if (attrs == NULL) return NULL;
+      memcpy(attrs, kernel_attributes, sizeof(cl_dbk_attributes_khr_matmul));
+      return attrs;
+    }
+    default: break;
+  }
+  POCL_MSG_ERR("Unknown builtin kernel ID: %u", kernel_id);
+  return NULL;
 }
 
 int pocl_release_defined_builtin_attributes(BuiltinKernelId kernel_id,
                                             void *kernel_attributes)
 {
-
+  switch (kernel_id)
+  {
+    case POCL_CDBI_DBK_KHR_GEMM:
+    case POCL_CDBI_DBK_KHR_MATMUL:
+    {
+      POCL_MEM_FREE(kernel_attributes);
+      return CL_SUCCESS;
+    }
+    default: break;
+  }
+  POCL_RETURN_ERROR_ON(1, CL_INVALID_DBK_ID,
+                       "Unknown builtin kernel ID: %u", kernel_id);
 }

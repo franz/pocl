@@ -30,6 +30,7 @@
 #include "cpuinfo.h"
 #include "pocl_mem_management.h"
 #include "pocl_runtime_config.h"
+#include "pocl_builtin_kernels.h"
 #include "topology/pocl_topology.h"
 #include "utlist.h"
 
@@ -130,17 +131,18 @@ pocl_cpu_init_common (cl_device_id device)
     }
 
 #ifdef HAVE_LIBXSMM
-  if (dev->ops->build_builtin == pocl_driver_build_opencl_builtins)
+  //if (device->ops->build_builtin == pocl_driver_build_opencl_builtins)
+  if (device->builtin_kernel_list)
     {
-      POCL_MEM_FREE (dev->builtin_kernel_list);
-      dev->builtin_kernel_list
+      POCL_MEM_FREE (device->builtin_kernel_list);
+      device->builtin_kernel_list
           = strdup ("pocl.add.i8;"
                     "org.khronos.openvx.scale_image.nn.u8;"
                     "org.khronos.openvx.scale_image.bl.u8;"
                     "org.khronos.openvx.tensor_convert_depth.wrap.u8.f32;"
                     "khr_gemm;"
                     "khr_matmul;");
-      dev->num_builtin_kernels = 6;
+      device->num_builtin_kernels = 6;
     }
 #endif
 
@@ -258,6 +260,9 @@ pocl_cpu_init_common (cl_device_id device)
 
   return ret;
 }
+
+
+
 
 /* called from kernel setup code.
  * Sets up the actual arguments, except the local ones. */

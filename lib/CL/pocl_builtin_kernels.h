@@ -54,8 +54,21 @@ int pocl_sanitize_builtin_kernel_name(cl_kernel kernel, const char **saved_name)
 POCL_EXPORT
 int pocl_restore_builtin_kernel_name(cl_kernel kernel, const char *saved_name);
 
-int pocl_validate_defined_builtin_attributes(BuiltinKernelId kernel_id,
-                                            const void *kernel_attributes);
+typedef int pocl_validate_khr_gemm_callback_t(cl_bool TransA, cl_bool TransB,
+                                   const cl_tensor_desc *TenA,
+                                   const cl_tensor_desc *TenB,
+                                   const cl_tensor_desc *TenCIOpt,
+                                   const cl_tensor_desc *TenCOut,
+                                   const cl_tensor_datatype_union *Alpha,
+                                   const cl_tensor_datatype_union *Beta);
+
+/* GemmCB can be NULL, in which case the "generic" validation is run,
+ * which checks the basic sanity. If it's non-NULL it's expected to check
+ * device-specific validity. */
+POCL_EXPORT
+int pocl_validate_dbk_attributes(BuiltinKernelId kernel_id,
+                                             const void *kernel_attributes,
+                                             pocl_validate_khr_gemm_callback_t GemmCB);
 
 void *pocl_copy_defined_builtin_attributes(BuiltinKernelId kernel_id,
                                            const void *kernel_attributes);

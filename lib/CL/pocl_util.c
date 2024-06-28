@@ -1821,20 +1821,14 @@ pocl_device_supports_builtin_kernel (cl_device_id dev, const char *kernel_name)
   if (dev->builtin_kernel_list == NULL)
     return 0;
 
-  char *temp = strdup (dev->builtin_kernel_list);
-  char *token;
-  char *rest = temp;
-
-  while ((token = strtok_r (rest, ";", &rest)))
+  for (unsigned i = 0; i < dev->num_builtin_kernels; ++i)
     {
-      if (strcmp (token, kernel_name) == 0)
+      if (strcmp (dev->builtin_kernels_with_version[i].name, kernel_name) == 0)
         {
-          free (temp);
           return 1;
         }
     }
 
-  free (temp);
   return 0;
 }
 
