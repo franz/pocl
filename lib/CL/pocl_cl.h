@@ -673,6 +673,16 @@ struct pocl_device_ops {
   int (*supports_binary) (cl_device_id device, const size_t length,
                           const char *binary);
 
+  /* determine DefinedBuiltinKernel support. Driver should examine the
+   * kernel_id and the content of kernel_attributes and return CL_SUCCESS
+   * if it supports the required kernel+attributes combination. If it does not,
+   * it should return an error indicating which attribute is the problem.
+   * Note: the attributes have been already validated by runtime at this point
+   */
+  int (*supports_dbk) (cl_device_id device,
+                       BuiltinKernelId kernel_id,
+                       const void *kernel_attributes);
+
   /* Optional. if the driver needs to use hardware resources
    * for command queues, it should use these callbacks */
   int (*init_queue) (cl_device_id device, cl_command_queue queue);
@@ -1644,8 +1654,11 @@ struct _cl_program {
   /* If this is a program with built-in kernels, this is the list of kernel
      names it contains. */
   size_t num_builtin_kernels;
-  char **builtin_kernel_names;
-  char *concated_builtin_names;
+  const char **builtin_kernel_names;
+  const char *concated_builtin_names;
+  // relevant only for DefinedBuiltinKernels:
+  const BuiltinKernelId *builtin_kernel_ids;
+  const void **buildin_kernel_attributes;
 
   /* Poclcc binary format.  */
   /* per-device poclbinary-format binaries.  */

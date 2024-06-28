@@ -118,6 +118,9 @@
       cl_device_id device, cl_program program, unsigned program_device_i);    \
   int pocl_##__DRV__##_supports_binary (                                      \
       cl_device_id device, size_t length, const char *binary);                \
+  int pocl_##__DRV__##_supports_dbk (cl_device_id device,                     \
+                                     BuiltinKernelId kernel_id,               \
+                                     const void *kernel_attributes);          \
   void pocl_##__DRV__##_memfill (void *data, pocl_mem_identifier *dst_mem_id, \
                                  cl_mem dst_buf, size_t size, size_t offset,  \
                                  const void *__restrict__ pattern,            \
