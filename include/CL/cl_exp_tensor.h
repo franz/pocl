@@ -1,26 +1,42 @@
 
 #ifndef OPENCL_EXP_TENSOR_H
 #define OPENCL_EXP_TENSOR_H
-#include <CL/opencl.h>
+#include <CL/cl.h>
 
 typedef cl_ulong cl_tensor_shape;
 typedef cl_uint cl_tensor_dim;
 typedef cl_uint cl_tensor_desc_type;
 typedef cl_uint cl_tensor_datatype;
 typedef cl_uint cl_tensor_layout_type;
+typedef cl_uint cl_tensor_layout_ml_type;
 
-// cl_tensor_desc_type
-#define CL_TENSOR_DESC_BASE 1
+// cl_tensor_datatype enum
+#define CL_TENSOR_FP16 1
+#define CL_TENSOR_FP32 2
+#define CL_TENSOR_FP64 3
+#define CL_TENSOR_INT8 10
+#define CL_TENSOR_INT16 11
+#define CL_TENSOR_INT32 12
+#define CL_TENSOR_INT64 13
+#define CL_TENSOR_INT4 14
 
-// cl_tensor_datatype
-#define CL_TENSOR_FLOAT 1
-#define CL_TENSOR_DOUBLE 2
-#define CL_TENSOR_INT 3
 // TODO: To be completed later.
 
 // cl_tensor_layout_type
-#define CL_TENSOR_LAYOUT_OPAQUE 1
-#define CL_TENSOR_LAYOUT_BLAS 2
+#define CL_TENSOR_LAYOUT_NONE 0
+#define CL_TENSOR_LAYOUT_BLAS 1
+#define CL_TENSOR_LAYOUT_ML 2
+
+// cl_tensor_layout_ml_type
+#define CL_TENSOR_LAYOUT_ML_NC 1
+#define CL_TENSOR_LAYOUT_ML_NCHW 2
+#define CL_TENSOR_LAYOUT_ML_NHWC 3
+#define CL_TENSOR_LAYOUT_ML_LAST 4
+
+// TODO numeric values
+#define CL_INVALID_TENSOR_LAYOUT -2309
+#define CL_INVALID_TENSOR_RANK -2310
+#define CL_INVALID_TENSOR_SHAPE -2311
 
 // Additions to cl_mem_object_type
 
@@ -34,14 +50,13 @@ typedef cl_uint cl_tensor_layout_type;
 // * splitting large tensors to smaller ones.
 // * reshaping existing tensor to another.
 // * coercing data type of an existing tensor to other type of same size.
-#define CL_MEM_TENSOR_VIEW 0x8001
+//#define CL_MEM_TENSOR_VIEW 0x8001
+
+#define CL_MEM_MAX_TENSOR_RANK 7
 
 typedef struct _cl_tensor_desc
 {
-  cl_tensor_desc_type stype; // Must be CL_TENSOR_DESC_BASE
-  void *next;
-
-  // The rank of the tensor.
+  // The rank of the tensor. <= CL_MEM_MAX_TENSOR_RANK
   cl_uint rank;
 
   // The shape of the tensor described by an array. Describes number
@@ -52,13 +67,11 @@ typedef struct _cl_tensor_desc
   //
   // Conditions:
   //
-  // * Must be non-NULL.
-  //
   // * Lenght of the array must be at least <rank> elements.
   //
   // * TBC: A dimension can be zero meaning the size is unspeficied. However,
   //   commands involing tensors must have fully specified shape.
-  const cl_tensor_shape *shape;
+  cl_tensor_shape shape[CL_MEM_MAX_TENSOR_RANK];
 
   // The element type of the tensor.
   cl_tensor_datatype dtype;
@@ -66,28 +79,17 @@ typedef struct _cl_tensor_desc
   // Optional data layout description. Must be NULL or one of
   // cl_tensor_layout_* structures in the below.
   //
-  // If NULL, cl{Enqueue,Command}{ImportFrom,ExportTo}Tensor must be
+  // If NULL, cl{Enqueue,Command}{Read,Write}Tensor must be
   // used for transferring data from or to tensor. If a pointer to the
   // tensor data is aquired (somehow), dereferencing that pointer is
   // undefined behavior.
+  cl_tensor_layout_type layout_type;
   const void *layout;
 } cl_tensor_desc;
-
-// All tensor layout descriptions start with the following common
-// initial sequence.
-typedef struct _cl_tensor_layout_base
-{
-  cl_tensor_layout_type stype;
-  // Vulkan style extension mechanism. Must be NULL if not used.
-  void *next;
-} cl_tensor_layout_base;
 
 // Describes data layout similar to one used in BLAS APIs.
 typedef struct _cl_tensor_layout_blas
 {
-  cl_tensor_layout_type stype; // Must be set to CL_TENSOR_LAYOUT_BLAS.
-  void *next;
-
   // Leading tensor dimensions. This describes which elements along
   // tensor dimensions are laid out first in the memory. Tensor
   // coodrinates (tensor_coords = {x0, x1, ..., x2}) map to buffer
@@ -129,5 +131,11 @@ typedef struct _cl_tensor_layout_blas
   //size_t base_alignment;
 
 } cl_tensor_layout_blas;
+
+typedef struct _cl_tensor_layout_ml
+{
+  cl_tensor_layout_ml_type ml_type;
+} cl_tensor_layout_ml;
+
 
 #endif // OPENCL_EXP_TENSOR_H

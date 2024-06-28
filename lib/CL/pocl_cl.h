@@ -1537,9 +1537,17 @@ struct _cl_mem {
   size_t                  pipe_packet_size;
   size_t                  pipe_max_packets;
 
+
   /* Tensor Properties */
-  cl_bool is_tensor;
-  cl_tensor_desc *tensor_desc; /* Lifetime: this struct. */
+  cl_bool                 is_tensor;
+  //cl_tensor_desc          tensor_desc;
+  // members here:
+  cl_uint                 tensor_rank;
+  cl_tensor_shape         tensor_shape[CL_MEM_MAX_TENSOR_RANK];
+  cl_tensor_datatype      tensor_dtype;
+  // can be cl_tensor_layout_blas or cl_tensor_layout_ml
+  cl_tensor_layout_type   tensor_layout_type;
+  void*                   tensor_layout;
 };
 
 typedef uint8_t SHA1_digest_t[SHA1_DIGEST_SIZE * 2 + 1];

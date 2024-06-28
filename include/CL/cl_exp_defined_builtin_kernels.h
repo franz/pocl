@@ -2,10 +2,13 @@
 #ifndef OPENCL_EXP_DEFINED_BUILTIN_KERNELS
 #define OPENCL_EXP_DEFINED_BUILTIN_KERNELS
 
-#include <CL/cl_exp_tensor.h>
+#include "cl_exp_tensor.h"
 
 #define CL_DBK_UNAVAILABLE 0x8101
 #define CL_DBK_INVALID_ATTRIBUTE 0x8102
+#define CL_DBK_INVALID_RANK 0x8103
+#define CL_DBK_INVALID_SHAPE 0x8104
+#define CL_DBK_INVALID_DATATYPE 0x8105
 
 typedef cl_properties cl_dbk_properties;
 
