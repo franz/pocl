@@ -1699,9 +1699,6 @@ struct _pocl_ptr_list_node
   struct _pocl_ptr_list_node *prev, *next;
 };
 
-typedef void (*pocl_custom_kernel_runner_fn) (_cl_command_node *cmd,
-                                              void *data);
-typedef void (*pocl_release_kernel_runner_data_fn) (void *data);
 
 struct _cl_kernel {
   POCL_ICD_OBJECT
@@ -1747,16 +1744,6 @@ struct _cl_kernel {
      We should ensure at enqueue time that all of the known raw buffers
      will be synchronized to the device. */
   char can_access_all_raw_buffers_indirectly;
-
-  /* Custom kernel runner (a host function). Used for kernels not
-     built from sources. For instance, DBKs whose execution might be
-     delegated to external libraries, like LIBXSMM. */
-  pocl_custom_kernel_runner_fn custom_runner;
-
-  /* Data passed to custom_host_runner. Pointed data is owned by this
-   * struct and released via release_kernel_runner_data(). */
-  void *custom_runner_data;
-  pocl_release_kernel_runner_data_fn release_custom_runner_data;
 
   /* for program's linked list of kernels */
   struct _cl_kernel *next;
