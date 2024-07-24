@@ -464,7 +464,7 @@ pocl_pthread_prepare_kernel (void *data, _cl_command_node *cmd)
   pocl_driver_build_gvar_init_kernel (program, dev_i, cmd->device,
                                       pocl_cpu_gvar_init_callback);
 
-  const char *saved_name = NULL;
+  char *saved_name = NULL;
   pocl_sanitize_builtin_kernel_name (kernel, &saved_name);
   void *ci = pocl_check_kernel_dlhandle_cache (cmd, CL_TRUE, CL_TRUE);
   cmd->command.run.device_data = ci;

@@ -45,11 +45,11 @@ extern "C"
 
   POCL_EXPORT
   int pocl_sanitize_builtin_kernel_name (cl_kernel kernel,
-                                         const char **saved_name);
+                                         char **saved_name);
 
   POCL_EXPORT
   int pocl_restore_builtin_kernel_name (cl_kernel kernel,
-                                        const char *saved_name);
+                                        char *saved_name);
 
   typedef int
   pocl_validate_khr_gemm_callback_t (cl_bool TransA,

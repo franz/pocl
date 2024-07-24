@@ -152,7 +152,7 @@ POname (clCreateProgramWithDefinedBuiltInKernels) (
     goto ERROR;
 
   program->num_builtin_kernels = num_kernels;
-  program->builtin_kernel_names = (const char **)builtin_names;
+  program->builtin_kernel_names = builtin_names;
   program->concated_builtin_names = concated_kernel_names;
   program->builtin_kernel_ids = builtin_kernel_ids;
   program->builtin_kernel_attributes = builtin_kernel_attrs;

@@ -621,7 +621,7 @@ pocl_setup_builtin_metadata (cl_device_id device,
 }
 
 int
-pocl_sanitize_builtin_kernel_name (cl_kernel kernel, const char **saved_name)
+pocl_sanitize_builtin_kernel_name (cl_kernel kernel, char **saved_name)
 {
   *saved_name = NULL;
   /* NOTE: this is deliberately limited to builtin kernels.
@@ -643,7 +643,7 @@ pocl_sanitize_builtin_kernel_name (cl_kernel kernel, const char **saved_name)
 }
 
 int
-pocl_restore_builtin_kernel_name (cl_kernel kernel, const char *saved_name)
+pocl_restore_builtin_kernel_name (cl_kernel kernel, char *saved_name)
 {
   if (kernel->program->num_builtin_kernels)
     {

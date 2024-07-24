@@ -588,7 +588,7 @@ void
 pocl_basic_compile_kernel (_cl_command_node *cmd, cl_kernel kernel,
                            cl_device_id device, int specialize)
 {
-  const char *saved_name = NULL;
+  char *saved_name = NULL;
   pocl_sanitize_builtin_kernel_name (kernel, &saved_name);
   if (cmd != NULL && cmd->type == CL_COMMAND_NDRANGE_KERNEL)
     pocl_check_kernel_dlhandle_cache (cmd, CL_FALSE, specialize);
@@ -839,7 +839,6 @@ pocl_basic_usm_alloc (cl_device_id dev, unsigned alloc_type,
 
   ptr = pocl_aligned_malloc (MAX_EXTENDED_ALIGNMENT, size);
 
-ERROR:
   if (err_code)
     *err_code = errcode;
 

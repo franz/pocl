@@ -355,7 +355,7 @@ typedef enum
   POCL_ARG_TYPE_IMAGE = 2,
   POCL_ARG_TYPE_SAMPLER = 3,
   POCL_ARG_TYPE_PIPE = 4,
-  POCL_ARG_TYPE_MUTABLE = 0, // POD type with mutable size, only used by DBKs
+  POCL_ARG_TYPE_MUTABLE = 0, /* POD type with mutable size, only used by DBKs */
 } pocl_argument_type;
 
 #define ARG_IS_LOCAL(a) (a.address_qualifier == CL_KERNEL_ARG_ADDRESS_LOCAL)
@@ -363,8 +363,8 @@ typedef enum
 
 /* Kernel argument metadata. */
 typedef struct pocl_argument_info {
-  const char *type_name;
-  const char *name;
+  char *type_name;
+  char *name;
   cl_kernel_arg_address_qualifier address_qualifier;
   cl_kernel_arg_access_qualifier access_qualifier;
   cl_kernel_arg_type_qualifier type_qualifier;
@@ -1707,12 +1707,9 @@ struct _cl_mem {
 
   /* Tensor Properties */
   cl_bool is_tensor;
-  // cl_tensor_desc          tensor_desc;
-  //  members here:
   cl_uint tensor_rank;
   cl_tensor_shape tensor_shape[CL_MEM_MAX_TENSOR_RANK];
   cl_tensor_datatype tensor_dtype;
-  // can be cl_tensor_layout_blas or cl_tensor_layout_ml
   cl_tensor_layout_type tensor_layout_type;
   void *tensor_layout;
 };
@@ -1734,8 +1731,8 @@ typedef struct pocl_kernel_metadata_s
   cl_uint num_args;
   cl_uint num_locals;
   size_t *local_sizes;
-  const char *name;
-  const char *attributes;
+  char *name;
+  char *attributes;
   struct pocl_argument_info *arg_info;
   cl_bitfield has_arg_metadata;
   size_t reqd_wg_size[OPENCL_MAX_DIMENSION];
@@ -1812,8 +1809,8 @@ struct _cl_program {
   /* If this is a program with built-in kernels, this is the list of kernel
      names it contains. */
   size_t num_builtin_kernels;
-  const char **builtin_kernel_names;
-  const char *concated_builtin_names;
+  char **builtin_kernel_names;
+  char *concated_builtin_names;
   // relevant only for DefinedBuiltinKernels:
   BuiltinKernelId *builtin_kernel_ids;
   void **builtin_kernel_attributes;

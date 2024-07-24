@@ -2487,7 +2487,7 @@ pocl_str_toupper(char *out, const char *in)
 char *
 pocl_strcatdup_v (size_t num_strs, const char **strs)
 {
-  assert (strs || !num_strs && "strs is NULL while num_strs > 0!");
+  assert ((strs || !num_strs) && "strs is NULL while num_strs > 0!");
   switch (num_strs)
     {
     default:
