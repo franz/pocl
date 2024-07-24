@@ -1,26 +1,55 @@
+/*******************************************************************************
+ * Copyright (c) 2022-2024 Henry Linjamäki, Michal Babej / Intel Finland Oy
+ *
+ * PoCL-specific proof-of-concept (draft) of Defined Builtin Kernels extension.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and/or associated documentation files (the
+ * "Materials"), to deal in the Materials without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Materials, and to
+ * permit persons to whom the Materials are furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Materials.
+ *
+ * MODIFICATIONS TO THIS FILE MAY MEAN IT NO LONGER ACCURATELY REFLECTS
+ * KHRONOS STANDARDS. THE UNMODIFIED, NORMATIVE VERSIONS OF KHRONOS
+ * SPECIFICATIONS AND HEADER INFORMATION ARE LOCATED AT
+ *    https://www.khronos.org/registry/
+ *
+ * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+ ******************************************************************************/
 
 #ifndef OPENCL_EXP_DEFINED_BUILTIN_KERNELS
 #define OPENCL_EXP_DEFINED_BUILTIN_KERNELS
 
 #include "cl_exp_tensor.h"
 
+/* errors returned by the DBK API */
 #define CL_INVALID_DBK_ID 0x8101
 #define CL_INVALID_DBK_ATTRIBUTE 0x8102
 #define CL_INVALID_DBK_RANK 0x8103
 #define CL_INVALID_DBK_SHAPE 0x8104
 #define CL_INVALID_DBK_DATATYPE 0x8105
 
-// TODO numeric values
+/* TODO numeric values */
 #define CL_INVALID_TENSOR_LAYOUT -2309
 #define CL_INVALID_TENSOR_RANK -2310
 #define CL_INVALID_TENSOR_SHAPE -2311
 #define CL_UNSUPPORTED_DBK -2312
 
-typedef cl_properties cl_dbk_properties;
 
 typedef enum
 {
-  // CD = custom device, BI = built-in
+  /* CD = custom device, BI = built-in */
   POCL_CDBI_COPY_I8 = 0,
   POCL_CDBI_ADD_I32 = 1,
   POCL_CDBI_MUL_I32 = 2,
@@ -65,34 +94,36 @@ typedef enum
   POCL_CDBI_JIT_COMPILER = 0xFFFF
 } BuiltinKernelId;
 
-#define CL_MAX_DBK_PROPERTIES 64
+/* for storing cl_dbk_property enums and actual values */
+typedef cl_properties cl_dbk_properties;
+
 typedef enum
 {
-  // Maximum relative error in ULPs allowed for the results respect to
-  // infinitely precise result.
-  CL_DBK_PROPERTY_MAX_RELATIVE_ERROR = 1, // <float>
+  /* Maximum relative error in ULPs allowed for the results respect to */
+  /* infinitely precise result. */
+  CL_DBK_PROPERTY_MAX_RELATIVE_ERROR = 1, /* <float> */
 
-  // allow the N-th tensor argument to be mutable with respect to dimensions
-  CL_DBK_PROPERTY_MUTABLE_TENSOR_DIMS, // <cl_uint>
+  /* allow the N-th tensor argument to be mutable with respect to dimensions */
+  CL_DBK_PROPERTY_MUTABLE_TENSOR_DIMS, /* <cl_uint> */
 
-  // allow the N-th tensor argument to be mutable with respect to data types
-  CL_DBK_PROPERTY_MUTABLE_TENSOR_DTYPES, // <cl_uint>
+  /* allow the N-th tensor argument to be mutable with respect to data types */
+  CL_DBK_PROPERTY_MUTABLE_TENSOR_DTYPES, /* <cl_uint> */
 
-  // allow the N-th tensor argument to be mutable with respect to layout
-  CL_DBK_PROPERTY_MUTABLE_TENSOR_LAYOUT, // <cl_uint>
+  /* allow the N-th tensor argument to be mutable with respect to layout */
+  CL_DBK_PROPERTY_MUTABLE_TENSOR_LAYOUT, /* <cl_uint> */
 
-  // Allows the results of the DBK to fluctuate* with the exactly same
-  // inputs across kernel launches.
-  //
-  // *: CL_DBK_PROPERTY_MAX_RELATIVE_ERROR must still be respected if present.
-  //
-  // Drivers may ignore this property.
+  /* Allows the results of the DBK to fluctuate* with the exactly same
+   * inputs across kernel launches.
+   *
+   * *: CL_DBK_PROPERTY_MAX_RELATIVE_ERROR must still be respected if present.
+   *
+   * Drivers may ignore this property. */
   CL_DBK_PROPERTY_NON_DETERMINISTIC,
 
-  // Allow driver to trade off accuracy for speed by allowing it to flush
-  // denormals to zero.
-  //
-  // Drivers may ignore this property, meaning the behavior is not guaranteed.
+  /* Allow driver to trade off accuracy for speed by allowing it to flush
+   * denormals to zero.
+   *
+   * Drivers may ignore this property, meaning the behavior is not guaranteed. */
   CL_DBK_PROPERTY_ALLOW_FTZ
 } cl_dbk_property;
 
@@ -112,34 +143,37 @@ clCreateProgramWithDefinedBuiltInKernels (cl_context context,
                                           cl_int *device_support,
                                           cl_int *errcode_ret);
 
-// Name: "khr_gemm"
-// General multiply operation for matrices.
-//
-// Note that this also performs matrix-vector operations by setting
-// tensor shapes accordingly.
+#define CL_MAX_DBK_PROPERTIES 64
+
+/* Name: "khr_gemm"
+ * Attributes for General multiply operation for matrices.
+ *
+ * Note that this DBK can also perform matrix-vector operations if
+ * tensor shapes are set accordingly. */
 typedef struct _cl_dbk_attributes_khr_gemm
 {
   cl_tensor_desc a, b, c_in, c_out;
   cl_bool trans_a, trans_b;
-  // Union, real Type depends on the tensor operands. E.g.
-  // CL_TENSOR_FLOAT --> cl_float, CL_TENSOR_DOUBLE --> cl_double.
+  /* Union, real Type depends on the tensor operands. E.g.
+   * CL_TENSOR_FLOAT --> cl_float, CL_TENSOR_DOUBLE --> cl_double. */
   cl_tensor_datatype_union alpha, beta;
-  // 0-terminated array
+  /* 0-terminated array */
   cl_dbk_properties kernel_props[CL_MAX_DBK_PROPERTIES];
 } cl_dbk_attributes_khr_gemm;
 
-// Name: "khr_matmul" Matrix multiplication. Alias for khr_gemm with
-// alpha and beta set to 1 and 0, respectively
-//
-// Note that this also performs matrix-vector operations by setting
-// tensor shapes accordingly.
+/* Name: "khr_matmul"
+ * Attributes for Matrix multiplication. Identical to khr_gemm
+ * with alpha and beta set to 1 and 0, respectively.
+ *
+ * Note that this DBK can also perform matrix-vector operations if
+ * tensor shapes are set accordingly. */
 typedef struct _cl_dbk_attributes_khr_matmul
 {
   cl_tensor_desc a, b, c;
   cl_int trans_a;
   cl_int trans_b;
-  // 0-terminated array
+  /* 0-terminated array */
   cl_dbk_properties kernel_props[CL_MAX_DBK_PROPERTIES];
 } cl_dbk_attributes_khr_matmul;
 
-#endif // OPENCL_EXP_DEFINED_BUILTIN_KERNELS
+#endif /* OPENCL_EXP_DEFINED_BUILTIN_KERNELS */

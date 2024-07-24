@@ -361,22 +361,20 @@ pocl_check_tensor_layout (cl_uint rank,
                           cl_tensor_layout_type layout_type,
                           const void *layout)
 {
-  // Checked already at check_tensor_desc().
+  /* Checked already at check_tensor_desc(). */
   assert (rank > 0 && rank <= CL_MEM_MAX_TENSOR_RANK);
 
   if (layout == NULL && layout_type == CL_TENSOR_LAYOUT_NONE)
     {
-      // TODO: check memory flags.
-      //
-      // * CL_MEM_{COPY,HOST}_host_ptr -> Error due to unspecified
-      //   mapping of the host data to tensor coordinates.
-      //
-      // * CL_MEM_ALLOC_HOST_PTR -> Error for the same reason as for
-      //   CL_MEM_{COPY,HOST}_host_ptr. Could be valid but not
-      //   sensible as users may not know how the tensor elements are
-      //   mapped to the allocation. Perhaps, we could support this
-      //   case, if we extend the clGetMemObjectInfo() to return the
-      //   datalayout the driver picked (and wants to expose)?
+      /* TODO: check memory flags.
+      * CL_MEM_{COPY,HOST}_host_ptr -> Error due to unspecified
+        mapping of the host data to tensor coordinates.
+      * CL_MEM_ALLOC_HOST_PTR -> Error for the same reason as for
+        CL_MEM_{COPY,HOST}_host_ptr. Could be valid but not
+        sensible as users may not know how the tensor elements are
+        mapped to the allocation. Perhaps, we could support this
+        case, if we extend the clGetMemObjectInfo() to return the
+        datalayout the driver picked (and wants to expose)? */
       return CL_SUCCESS;
     }
 
@@ -405,19 +403,12 @@ pocl_check_tensor_layout (cl_uint rank,
       {
         cl_tensor_layout_blas *blas_layout = (cl_tensor_layout_blas *)layout;
 
-        POCL_RETURN_ERROR_ON (!blas_layout->leading_dims,
-                              CL_INVALID_TENSOR_LAYOUT,
-                              "BLAS layout: NULL leading_dims array!");
-        POCL_RETURN_ERROR_ON (!blas_layout->leading_strides,
-                              CL_INVALID_TENSOR_LAYOUT,
-                              "BLAS layout: NULL leading_strides array!");
-
-        // Check leading_dims array does not point out-of-rank dimensions
-        // nor the same dimension index does not appear twice.
-        //
-        // tensor_rank == 4: leading_dims = {0, 2, 1} --> Ok.
-        // tensor_rank == 4: leading_dims = {0, 4, 1} --> error.
-        // tensor_rank == 4: leading_dims = {1, 1, 0} --> error.
+        /* Check leading_dims array does not point out-of-rank dimensions
+         * nor the same dimension index does not appear twice.
+         *
+         * tensor_rank == 4: leading_dims = {0, 2, 1} --> Ok.
+         * tensor_rank == 4: leading_dims = {0, 4, 1} --> error.
+         * tensor_rank == 4: leading_dims = {1, 1, 0} --> error. */
         unsigned defined_dims = 0;
         const cl_tensor_dim *ld = blas_layout->leading_dims;
         for (unsigned i = 0; i < rank - 1; i++)
@@ -435,7 +426,7 @@ pocl_check_tensor_layout (cl_uint rank,
         size_t prev_stride = 0;
         for (unsigned i = 0; i < rank - 1; i++)
           {
-            // Check the stride configuration does not cause aliasing.
+            /* Check the stride configuration does not cause aliasing. */
             POCL_RETURN_ERROR_ON (ls[i] <= shape[ld[i]] * prev_stride,
               CL_INVALID_TENSOR_LAYOUT, "BLAS layout: Invalid stride\n");
             prev_stride = ls[i];
@@ -453,10 +444,10 @@ pocl_check_tensor_layout (cl_uint rank,
 static int
 pocl_check_tensor_desc (const cl_tensor_desc *tdesc)
 {
-  // Invalid to pass NULL tensor description in clCreateBufferWithProperties.
+  /* Invalid to pass NULL tensor description in clCreateBufferWithProperties. */
   POCL_RETURN_ERROR_COND ((tdesc == NULL), CL_INVALID_ARG_VALUE);
 
-  // TBC: Should there be upper limit for tensor rank?
+  /* TBC: Should there be upper limit for tensor rank? */
   POCL_RETURN_ERROR_ON ((tdesc->rank > CL_MEM_MAX_TENSOR_RANK),
                         CL_INVALID_TENSOR_RANK, "Unsupported tensor rank.");
 
@@ -502,8 +493,6 @@ pocl_copy_tensor_desc (cl_mem mem, const cl_tensor_desc *tdesc)
       return CL_SUCCESS;
     }
 
-  cl_tensor_dim *new_ld_dims = NULL;
-  size_t *new_ld_strides = NULL;
   cl_tensor_layout_ml *new_layout1 = NULL;
   cl_tensor_layout_blas *new_layout2 = NULL;
 
@@ -532,16 +521,11 @@ pocl_copy_tensor_desc (cl_mem mem, const cl_tensor_desc *tdesc)
         new_layout2 = DUPLICATE (blas_layout, 1, cl_tensor_layout_blas);
         if (!new_layout2)
           goto error;
-        new_ld_dims = DUPLICATE (blas_layout->leading_dims, tdesc->rank - 1,
-                                 cl_tensor_dim);
-        new_ld_strides = DUPLICATE (blas_layout->leading_strides,
-                                    tdesc->rank - 1, size_t);
 
-        if (!new_ld_dims || !new_ld_strides)
-          goto error;
-
-        new_layout2->leading_dims = new_ld_dims;
-        new_layout2->leading_strides = new_ld_strides;
+        memcpy(new_layout2->leading_dims, blas_layout->leading_dims,
+               sizeof(blas_layout->leading_dims));
+        memcpy(new_layout2->leading_strides, blas_layout->leading_strides,
+               sizeof(blas_layout->leading_strides));
         mem->tensor_layout = new_layout2;
         mem->tensor_layout_type = CL_TENSOR_LAYOUT_BLAS;
         return CL_SUCCESS;
@@ -551,9 +535,7 @@ pocl_copy_tensor_desc (cl_mem mem, const cl_tensor_desc *tdesc)
 error:
   free (new_layout1);
   free (new_layout2);
-  free (new_ld_dims);
-  free (new_ld_strides);
-  return CL_FAILED;
+  return CL_OUT_OF_HOST_MEMORY;
 }
 
 static cl_int
@@ -581,7 +563,7 @@ pocl_parse_cl_mem_properties (const cl_mem_properties *prop_ptr,
         case CL_MEM_TENSOR:
           {
             *tdesc = (const cl_tensor_desc *)prop_ptr[1];
-            prop_ptr += 2; // = CL_MEM_TENSOR and its value.
+            prop_ptr += 2; /* = CL_MEM_TENSOR and its value. */
 
             POCL_RETURN_ERROR_ON ((pocl_check_tensor_desc (*tdesc)),
                                   CL_INVALID_PROPERTY,

@@ -78,8 +78,8 @@ public:
   TensorLayoutBLAS(std::initializer_list<cl_tensor_dim> TheLeadingDims,
                    std::initializer_list<size_t> TheLeadingStrides)
       : LeadingDims(TheLeadingDims), LeadingStrides(TheLeadingStrides) {
-    Layout.leading_dims = LeadingDims.data();
-    Layout.leading_strides = LeadingStrides.data();
+    memcpy(Layout.leading_dims, LeadingDims.data(), LeadingDims.size()*sizeof(cl_tensor_dim) );
+    memcpy(Layout.leading_strides, LeadingStrides.data(), LeadingStrides.size()*sizeof(size_t) );
   }
 
   const cl_tensor_layout_blas *get() const noexcept { return &Layout; }
