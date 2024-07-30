@@ -831,7 +831,7 @@ static int convertBCorSPV(char *InputPath,
   //Opts.setBuiltinFormat(SPIRV::BuiltinFormat::Function);
   Opts.setDesiredBIsRepresentation(SPIRV::BIsRepresentation::OpenCL20);
   //Opts.setPreserveOCLKernelArgTypeMetadataThroughString();
-  Opts.setGenKernelArgNameMDEnabled(true);
+//  Opts.setGenKernelArgNameMDEnabled(true);
 #endif
   int r = -1;
 
@@ -926,13 +926,8 @@ static int convertBCorSPV(char *InputPath,
     }
 
     // TODO maybe use context from program ?
-    if (!regularizeLlvmForSpirv(Mod, Errors, Opts)) {
-      BuildLog->append("LLVMSPIRVLib: Regularize failed with errors:\n");
-      BuildLog->append(Errors.c_str());
-      goto FINISHED;
-    }
     if (!writeSpirv(Mod, Opts, SS, Errors)) {
-      BuildLog->append("LLVMSPIRVLib: Write failed with errors:\n");
+      BuildLog->append("LLVMSPIRVLib: writeSPIRV failed with errors:\n");
       BuildLog->append(Errors.c_str());
       goto FINISHED;
     }
