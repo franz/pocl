@@ -910,11 +910,11 @@ static void getModelNativeCachePath(Level0BuiltinProgram *Program,
 static bool findModelInNativeCache(Level0BuiltinProgram *Program,
                                    const std::vector<uint8_t> &ModelXml,
                                    const std::vector<uint8_t> &ModelBin,
-                                   const char* BuildFlags,
+                                   const std::string &BuildFlags,
                                    const std::string &Name,
                                    std::string &ProgCachePath,
                                    std::string &ProgNativeDir,
-                                   Level0BuiltinKernelBuild &Out) {
+                                   Level0BuiltinKernelBuildResult &Out) {
   // TODO KernelCacheUUID ? NPU driver version ?
   getModelNativeCachePath(Program, ModelXml, ModelBin,
                           BuildFlags, Name,
@@ -943,7 +943,7 @@ bool Level0BuiltinProgramBuild::loadBinary(ze_context_handle_t FinalContextH,
                                            ze_device_handle_t FinalDeviceH,
                                            ze_command_queue_handle_t QueueH,
                                            ze_command_list_handle_t ListH,
-                                           Level0BuiltinKernelBuild &Out) {
+                                           Level0BuiltinKernelBuildResult &Out) {
   BuildLog.append("Creating graph");
 
   ze_activation_kernel_desc_t ActKernelDesc = {};
@@ -1004,10 +1004,10 @@ bool Level0BuiltinProgramBuild::compileFromXmlBin(ze_context_handle_t ContextH,
                                                   ze_device_handle_t DeviceH,
                                                   const std::vector<uint8_t> &ModelXml,
                                                   const std::vector<uint8_t> &ModelBin,
-                                                  const char* BuildFlags,
+                                                  const std::string &BuildFlags,
                                                   std::string ProgCachePath,
                                                   std::string ProgNativeDir,
-                                                  Level0BuiltinKernelBuild &Out) {
+                                                  Level0BuiltinKernelBuildResult &Out) {
 
   BuildLog.append("Starting BuiltinProgram Graph compilation\n");
   std::vector<uint8_t> Model;
@@ -1062,7 +1062,7 @@ bool Level0BuiltinProgramBuild::compileFromXmlBin(ze_context_handle_t ContextH,
     .format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
     .inputSize = Model.size(),
     .pInput = Model.data(),
-    .pBuildFlags = BuildFlags
+    .pBuildFlags = BuildFlags.c_str()
   };
 
   auto Deleter = [this](ze_graph_handle_t ptr) {
@@ -1148,6 +1148,10 @@ static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
     TotalSize *= graphArgProps.dims[i];
 
   switch (graphArgProps.devicePrecision) {
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP64:
+    case ZE_GRAPH_ARGUMENT_PRECISION_UINT64:
+    case ZE_GRAPH_ARGUMENT_PRECISION_INT64:
+      TotalSize *= sizeof(uint64_t);
     case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
     case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT32:
@@ -1172,6 +1176,12 @@ static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
   }
 
   switch (graphArgProps.devicePrecision) {
+    case ZE_GRAPH_ARGUMENT_PRECISION_FP64:
+      TypeName = "double"; break;
+    case ZE_GRAPH_ARGUMENT_PRECISION_UINT64:
+      TypeName = "ulong"; break;
+    case ZE_GRAPH_ARGUMENT_PRECISION_INT64:
+      TypeName = "long"; break;
     case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
       TypeName = "float"; break;
     case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
@@ -1201,7 +1211,7 @@ static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
   assert(TotalSize != 0);
 }
 
-bool Level0BuiltinKernelBuild::setupBuiltinKernelMetadata(void *MetaPtr) {
+bool Level0BuiltinKernelBuildResult::setupBuiltinKernelMetadata(void *MetaPtr) {
   ze_graph_properties_t graphProps{};
   ze_result_t Res = GraphDDITable->pfnGetProperties(GraphHFinal, &graphProps);
   if (Res != ZE_RESULT_SUCCESS) {
@@ -1273,38 +1283,104 @@ bool Level0BuiltinKernelBuild::setupBuiltinKernelMetadata(void *MetaPtr) {
   return true;
 }
 
-constexpr unsigned NumLevel0GraphModels = 3;
+const char *GEMM_XML_Template = R"(
+<?xml version="1.0"?>
+<net name="TensorFlow_Frontend_IR" version="11">
+  <layers>
+    <layer id="1" name="x1" type="Parameter" version="opset1">
+      <data shape="SHAPE_AM,SHAPE_AK" element_type="INPUT_ELEM_TYPE" />
+      <output>
+        <port id="0" precision="INPUT_PREC" names="x1">
+          <dim>SHAPE_M</dim>
+          <dim>SHAPE_K</dim>
+        </port>
+      </output>
+    </layer>
+    <layer id="0" name="x2" type="Parameter" version="opset1">
+      <data shape="SHAPE_BK,SHAPE_BN" element_type="INPUT_ELEM_TYPE" />
+      <output>
+        <port id="0" precision="INPUT_PREC" names="x2">
+          <dim>SHAPE_K</dim>
+          <dim>SHAPE_N</dim>
+        </port>
+      </output>
+    </layer>
+    <layer id="2" name="model/dot/MatMul" type="MatMul" version="opset1">
+      <data transpose_a="TRANSPOSE_A" transpose_b="TRANSPOSE_B" />
+      <input>
+        <port id="0" precision="INPUT_PREC">
+          <dim>SHAPE_M</dim>
+          <dim>SHAPE_K</dim>
+        </port>
+        <port id="1" precision="INPUT_PREC">
+          <dim>SHAPE_K</dim>
+          <dim>SHAPE_N</dim>
+        </port>
+      </input>
+      <output>
+        <port id="2" precision="OUTPUT_PREC" names="dot">
+          <dim>SHAPE_M</dim>
+          <dim>SHAPE_N</dim>
+        </port>
+      </output>
+    </layer>
+    <layer id="3" name="dot" type="Result" version="opset1">
+      <input>
+        <port id="0" precision="OUTPUT_PREC">
+          <dim>SHAPE_M</dim>
+          <dim>SHAPE_N</dim>
+        </port>
+      </input>
+    </layer>
+  </layers>
+  <edges>
+    <edge from-layer="0" from-port="0" to-layer="2" to-port="1" />
+    <edge from-layer="1" from-port="0" to-layer="2" to-port="0" />
+    <edge from-layer="2" from-port="2" to-layer="3" to-port="0" />
+  </edges>
+  <rt_info>
+    <Runtime_version value="2023.3.0-13775-ceeafaf64f3-releases/2023/3" />
+    <conversion_parameters>
+      <is_python_object value="False" />
+    </conversion_parameters>
+  </rt_info>
+</net>
+)";
+
+const char *GEMM_Flags_Template = R"RAW(--inputs_precisions="x1:INPUT_PREC x2:INPUT_PREC" --inputs_layouts="x1:INPUT_LAYOUT x2:INPUT_LAYOUT" --outputs_precisions="model/dot/MatMul:OUTPUT_PREC" --outputs_layouts="model/dot/MatMul:OUTPUT_LAYOUT" --config   NPU_PLATFORM="3720" PERFORMANCE_HINT="LATENCY")RAW";
+
+constexpr unsigned NumLevel0GraphModels = 2;
 static const Level0Model Level0GraphModels[NumLevel0GraphModels] = {
   Level0Model{
     .Name = "pocl.googlenet.v1.fp32",
+    .DBK_ID = 0,
     .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
     .NGraphXml = "googlenet-v1.xml",
     .NGraphBin = "googlenet-v1.bin",
-    .BuildFlags =  R"RAW(--inputs_precisions="data:U8" --inputs_layouts="data:NCHW"  --outputs_precisions="dot:FP16" --outputs_layouts="dot:NC" --config NPU_PLATFORM="3720" LOG_LEVEL="LOG_DEBUG")RAW"
+    .NGraphXmlTemplate = "",
+    .BuildFlags =  R"RAW(--inputs_precisions="data:U8" --inputs_layouts="data:NCHW"  --outputs_precisions="dot:FP16" --outputs_layouts="dot:NC" --config NPU_PLATFORM="3720" LOG_LEVEL="LOG_DEBUG")RAW",
+    .BuildFlagsTemplate = nullptr
   },
   Level0Model{
-    .Name = "pocl.gemm.fp16",
+    .Name = "dbk.khr.gemm",
+    .DBK_ID = POCL_CDBI_DBK_KHR_GEMM,
     .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
-    .NGraphXml = "gemm-fp16.xml",
-    .NGraphBin = "gemm-fp16.bin",
-    .BuildFlags =  R"RAW(--inputs_precisions="x1:FP16 x2:FP16" --inputs_layouts="x1:NC x2:NC" --outputs_precisions="model/dot/MatMul:FP16" --outputs_layouts="model/dot/MatMul:NC" --config   NPU_PLATFORM="3720" PERFORMANCE_HINT="LATENCY")RAW"
+    .NGraphXml = "",
+    .NGraphBin = "",
+    .NGraphXmlTemplate = GEMM_XML_Template,
+    .BuildFlags = nullptr,
+    .BuildFlagsTemplate = GEMM_Flags_Template
   },
-  Level0Model{
-    .Name = "pocl.gemm.fp32",
-    .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
-    .NGraphXml = "gemm-fp32.xml",
-    .NGraphBin = "gemm-fp32.bin",
-    .BuildFlags =  R"RAW(--inputs_precisions="x1:FP32 x2:FP32" --inputs_layouts="x1:NC x2:NC" --outputs_precisions="model/dot/MatMul:FP32" --outputs_layouts="model/dot/MatMul:NC" --config   NPU_PLATFORM="3720" PERFORMANCE_HINT="LATENCY")RAW"
-  }
 };
 
 
-// returns semicolon separated list of recognized models
+// returns semicolon separated list of recognized models (TODO: excluding DBKs ?)
 void pocl::getNpuGraphModelsList(std::string &Out, unsigned &NumKernels) {
   for (unsigned I = 0; I < NumLevel0GraphModels ;++I) {
     if (I > 0)
       Out.append(";");
-    Out.append(Level0GraphModels[I].Name);
+    if (Level0GraphModels[I].DBK_ID == 0)
+      Out.append(Level0GraphModels[I].Name);
   }
 }
 
@@ -1329,10 +1405,107 @@ static bool readFile(const std::string &BasePath,
   return true;
 }
 
+static void replaceAllStrings(std::string Buffer,
+                              const std::string &Old,
+                              const std::string &New) {
+  size_t Pos = std::string::npos;
+  size_t Len = Old.size();
+  while ((Pos = Buffer.find(Old)) != std::string::npos) {
+    Buffer.replace(Pos, Len, New);
+  }
+}
+
+static bool instantiateTemplate(std::string Instance,
+                                const Level0Model *M,
+                                const void* KernelAttrs) {
+
+  Instance = M->NGraphXmlTemplate;
+
+  cl_tensor_layout_ml *L = nullptr;
+  size_t SHAPE_M, SHAPE_K1, SHAPE_K2, SHAPE_N;
+  std::string INPUT_PREC, OUTPUT_PREC,
+      INPUT_ELEM_TYPE, OUTPUT_ELEM_TYPE,
+      INPUT_LAYOUT, OUTPUT_LAYOUT;
+  // TODO: alpha, beta
+  std::string ALPHA, BETA;
+
+  switch (M->DBK_ID) {
+    case POCL_CDBI_DBK_KHR_GEMM:
+    {
+      const cl_dbk_attributes_khr_gemm *Attrs
+        = (const cl_dbk_attributes_khr_gemm *)KernelAttrs;
+      SHAPE_M = Attrs->a.shape[0];
+      SHAPE_K1 = Attrs->a.shape[1];
+      SHAPE_K2 = Attrs->b.shape[0];
+      SHAPE_N = Attrs->b.shape[1];
+      assert(SHAPE_K1 == SHAPE_K2);
+
+      INPUT_PREC = dtype2ovtype(Attrs->a.dtype);
+      OUTPUT_PREC = dtype2ovtype(Attrs->c_out.dtype);
+      INPUT_ELEM_TYPE = dtype2elemtype(Attrs->a.dtype);
+
+      assert(Attrs->a.layout_type == CL_TENSOR_LAYOUT_ML);
+      L = (cl_tensor_layout_ml *)Attrs->a.layout;
+      INPUT_LAYOUT = layout2str(L->ml_type);
+
+      assert(Attrs->c_out.layout_type == CL_TENSOR_LAYOUT_ML);
+      L = (cl_tensor_layout_ml *)Attrs->c_out.layout;
+      OUTPUT_LAYOUT = layout2str(L->ml_type);
+
+      break;
+    }
+    case POCL_CDBI_DBK_KHR_MATMUL:
+    {
+      const cl_dbk_attributes_khr_matmul *Attrs
+        = (const cl_dbk_attributes_khr_matmul *)KernelAttrs;
+      SHAPE_M = Attrs->a.shape[0];
+      SHAPE_K1 = Attrs->a.shape[1];
+      SHAPE_K2 = Attrs->b.shape[0];
+      SHAPE_N = Attrs->b.shape[1];
+      assert(Attrs->a.layout_type == CL_TENSOR_LAYOUT_ML);
+      cl_tensor_layout_ml *L = (cl_tensor_layout_ml *)Attrs->a.layout;
+
+      INPUT_PREC = dtype2ovtype(Attrs->a.dtype);
+      OUTPUT_PREC = dtype2ovtype(Attrs->c.dtype);
+      INPUT_ELEM_TYPE = dtype2elemtype(Attrs->a.dtype);
+
+      assert(Attrs->a.layout_type == CL_TENSOR_LAYOUT_ML);
+      L = (cl_tensor_layout_ml *)Attrs->a.layout;
+      INPUT_LAYOUT = layout2str(L->ml_type);
+
+      assert(Attrs->c.layout_type == CL_TENSOR_LAYOUT_ML);
+      L = (cl_tensor_layout_ml *)Attrs->c.layout;
+      OUTPUT_LAYOUT = layout2str(L->ml_type);
+
+      break;
+    }
+    default:
+      POCL_MSG_ERR("Unknown DBK requested in instantiateTemplate\n");
+      return false;
+  }
+
+  replaceAllStrings(Instance, "SHAPE_M", std::to_string(SHAPE_M));
+  replaceAllStrings(Instance, "SHAPE_K", std::to_string(SHAPE_K1));
+  replaceAllStrings(Instance, "SHAPE_N", std::to_string(SHAPE_N));
+
+  replaceAllStrings(Instance, "INPUT_PREC", INPUT_PREC);
+  replaceAllStrings(Instance, "OUTPUT_PREC", OUTPUT_PREC);
+  replaceAllStrings(Instance, "INPUT_LAYOUT", INPUT_LAYOUT);
+  replaceAllStrings(Instance, "OUTPUT_LAYOUT", OUTPUT_LAYOUT);
+  replaceAllStrings(Instance, "INPUT_ELEM_TYPE", INPUT_ELEM_TYPE);
+  replaceAllStrings(Instance, "OUTPUT_ELEM_TYPE", OUTPUT_ELEM_TYPE);
+}
+
+
+/**
+ *  @brief Loads a native model from disk cache, or builds an XML+BIN model,
+ *  or builds a DBK template model
+*/
 bool Level0BuiltinProgramBuild::loadModel(ze_context_handle_t ContextH,
                                           ze_device_handle_t DeviceH,
                                           const Level0Model *M,
-                                          Level0BuiltinKernelBuild &Out) {
+                                          const void* KernelAttrs,
+                                          Level0BuiltinKernelBuildResult &Out) {
   char ModelDirectoryPath[POCL_MAX_PATHNAME_LENGTH];
   std::string PartialPath("/level0/");
   assert(!VPUModel.empty());
@@ -1364,22 +1537,38 @@ bool Level0BuiltinProgramBuild::loadModel(ze_context_handle_t ContextH,
   if (M->Format == ZE_GRAPH_FORMAT_NGRAPH_LITE) {
     std::vector<uint8_t> ModelXml;
     std::vector<uint8_t> ModelBin;
+    std::string BuildFlags;
 
     std::string ProgCachePath;
     std::string ProgNativeDir;
 
-    BuildLog.append("Loading Model XML & Bin\n");
+    if (M->DBK_ID != 0) {
+      BuildLog.append("Creating Model XML & Bin from Template\n");
+      std::string ModelXMLInstance;
+      std::string BuildFlagsInstance;
+      if (!instantiateTemplate(ModelXMLInstance, M, KernelAttrs))
+        return false;
+      if (!instantiateTemplate(BuildFlagsInstance, M, KernelAttrs))
+        return false;
+      ModelXml.insert(ModelXml.end(),
+                      ModelXMLInstance.begin(), ModelXMLInstance.end());
+      BuildFlags.insert(BuildFlags.end(),
+                        BuildFlagsInstance.begin(), BuildFlagsInstance.end());
+    } else {
+      BuildLog.append("Loading Model XML & Bin\n");
 
-    if (!readFile(ModelDirectoryPath, M->NGraphXml, ModelXml, BuildLog)) {
-      return false;
-    }
-    if (!readFile(ModelDirectoryPath, M->NGraphBin, ModelBin, BuildLog)) {
-      return false;
+      if (!readFile(ModelDirectoryPath, M->NGraphXml, ModelXml, BuildLog)) {
+        return false;
+      }
+      if (!readFile(ModelDirectoryPath, M->NGraphBin, ModelBin, BuildLog)) {
+        return false;
+      }
+      BuildFlags = M->BuildFlags;
     }
 
     if (findModelInNativeCache(Program,
                                ModelXml, ModelBin,
-                               M->BuildFlags, M->Name,
+                               BuildFlags, M->Name,
                                ProgCachePath, ProgNativeDir, Out)) {
       BuildLog.append("Model XML & Bin loaded, found cached "
                       "Native Model, not building\n");
@@ -1389,7 +1578,7 @@ bool Level0BuiltinProgramBuild::loadModel(ze_context_handle_t ContextH,
     BuildLog.append("Model XML & Bin loaded, compiling\n");
     return compileFromXmlBin(ContextH, DeviceH,
                              ModelXml, ModelBin,
-                             M->BuildFlags,
+                             BuildFlags,
                              ProgCachePath, ProgNativeDir,
                              Out);
   }
@@ -1428,31 +1617,60 @@ void Level0BuiltinProgramBuild::run(ze_context_handle_t ContextH) {
 
   POCL_MSG_PRINT_LEVEL0("Measuring BuiltinProgram compilation\n");
 
-  for (auto const &K : Program->getKernelNames()) {
-    Level0BuiltinKernelBuild Temp{GraphDDITable, K};
+  auto KerIDs = Program->getKernelIDs();
+  auto KerNames = Program->getKernelNames();
+  auto KerAttrs = Program->getKernelAttrs();
+  size_t NumKernels = KerNames.size();
+  std::vector<const Level0Model *> BK_Models;
+  BK_Models.resize(NumKernels);
+  // DBK builtin kernels
+  assert(NumKernels > 0);
+
+  BuildSuccessful = true;
+  for (unsigned KerIdx = 0; KerIdx < NumKernels; ++KerIdx) {
+    unsigned KerID = KerIDs[KerIdx];
+    const std::string &KName = KerNames[KerIdx];
     const Level0Model *Model = nullptr;
     for (unsigned i = 0; i < NumLevel0GraphModels; ++i) {
-      if (Level0GraphModels[i].Name == K) {
-        Model = &Level0GraphModels[i];
-        break;
+      if (Program->isDBK()) {
+        if (Level0GraphModels[i].DBK_ID == KerID) {
+          Model = &Level0GraphModels[i];
+          break;
+        }
+      } else {
+        if (Level0GraphModels[i].Name == KName) {
+          Model = &Level0GraphModels[i];
+          break;
+        }
       }
     }
     if (Model == nullptr) {
-      BuildLog.append("BUG: unknown kernel name: ");
-      BuildLog.append(K);
+      BuildLog.append("BUG: unknown DBK kernel with ID: ");
+      BuildLog.append(std::to_string(KerIDs[KerIdx]));
+      BuildLog.append(" Name: ");
+      BuildLog.append(KName);
       BuildSuccessful = false;
       break;
     } else {
-      BuildSuccessful = loadModel(ContextH,
-                                  Program->getDevice(),
-                                  Model, Temp);
-      if (BuildSuccessful)
-        KernelBuilds.emplace(K, std::move(Temp));
-      else
-        break;
+      BK_Models.emplace_back(Model);
     }
   }
 
+  if (!BuildSuccessful)
+    return;
+
+  for (unsigned KerIdx = 0; KerIdx < NumKernels; ++KerIdx) {
+    Level0BuiltinKernelBuildResult Temp{GraphDDITable};
+    BuildSuccessful = loadModel(ContextH,
+                                Program->getDevice(),
+                                BK_Models[KerIdx],
+                                Program->isDBK() ? KerAttrs[KerIdx] : nullptr,
+                                Temp);
+    if (BuildSuccessful)
+      KernelBuilds.emplace(KerNames[KerIdx], std::move(Temp));
+    else
+      break;
+  }
   Program = nullptr;
 
   POCL_MEASURE_FINISH(compilation);
@@ -1463,12 +1681,26 @@ Level0BuiltinProgram::Level0BuiltinProgram(ze_context_handle_t Ctx,
                                            ze_device_handle_t Dev,
                                            size_t NumBuiltinKernels,
                                            char **BuiltinKernelNames,
+                                           void *BuiltinKernelIDs, // IDs for DBKs
+                                           void **BuiltinKernelAttrs, // Attrs for DBKs
                                            const char *CDir,
                                            const std::string &UUID)
   : Level0ProgramBase(Ctx, Dev, CDir, UUID), QueueH(nullptr), ListH(nullptr) {
 
-  for (size_t i = 0; i < NumBuiltinKernels; ++i) {
-    KernelNames.emplace_back(BuiltinKernelNames[i]);
+  unsigned *IDs = reinterpret_cast<unsigned *>(BuiltinKernelIDs);
+  if (BuiltinKernelIDs) {
+    IsDBK = true;
+    assert(BuiltinKernelAttrs);
+    for (size_t i = 0; i < NumBuiltinKernels; ++i) {
+      KernelNames.emplace_back(BuiltinKernelNames[i]);
+      KernelIDs.emplace_back(IDs[i]);
+      KernelAttrs.emplace_back(BuiltinKernelAttrs[i]);
+    }
+  } else {
+    IsDBK = false;
+    for (size_t i = 0; i < NumBuiltinKernels; ++i) {
+      KernelNames.emplace_back(BuiltinKernelNames[i]);
+    }
   }
 }
 
@@ -1571,6 +1803,7 @@ bool Level0BuiltinProgram::setupBuiltinKernelMetadata(const char* Name,
   std::lock_guard<std::mutex> LockGuard(Mutex);
   assert((bool)FinishedBuild);
 
+  // TODO
   return FinishedBuild->setupBuiltinKernelMetadata(Name, MetaPtr);
 }
 
@@ -2083,11 +2316,13 @@ bool Level0CompilationJobScheduler::getBestKernel(Level0Program *Prog,
 
 #ifdef ENABLE_NPU
 Level0BuiltinProgram *Level0CompilationJobScheduler::createBuiltinProgram(
-                                    ze_context_handle_t Ctx,
+    ze_context_handle_t Ctx,
                                     ze_device_handle_t Dev,
                                     std::string &BuildLog,
                                     size_t num_builtin_kernels,
                                     char **builtin_kernel_names,
+                                    void *builtin_kernel_ids,
+                                    void **builtin_kernel_attributes,
                                     const char *CDir,
                                     const std::string &UUID) {
 
@@ -2100,6 +2335,8 @@ Level0BuiltinProgram *Level0CompilationJobScheduler::createBuiltinProgram(
   Level0BuiltinProgramSPtr Prog = std::make_shared<Level0BuiltinProgram>(Ctx, Dev,
                                                                          num_builtin_kernels,
                                                                          builtin_kernel_names,
+                                                                         builtin_kernel_ids,
+                                                                         builtin_kernel_attributes,
                                                                          CDir, UUID);
   if (!Prog->init()) {
     BuildLog.append("failed to initialize Level0BuiltinProgram\n");

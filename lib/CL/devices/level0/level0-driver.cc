@@ -1269,7 +1269,8 @@ void Level0Queue::run(_cl_command_node *Cmd) {
   if (Program->num_builtin_kernels > 0)
     runBuiltinKernel(RunCmd, Dev, Event, Program, Kernel, DeviceI);
   else
-    runNDRangeKernel(RunCmd, Dev, Event, Program, Kernel, DeviceI);
+    runNDRangeKernel(RunCmd, Dev, Event, Program, Kernel, DeviceI,
+                     Cmd->migr_infos);
 }
 
 void Level0Queue::runBuiltinKernel(_cl_command_run *RunCmd,
@@ -1355,7 +1356,8 @@ void Level0Queue::runNDRangeKernel(_cl_command_run *RunCmd,
                                    cl_event Event,
                                    cl_program Program,
                                    cl_kernel Kernel,
-                                   unsigned DeviceI) {
+                                   unsigned DeviceI,
+                                   pocl_buffer_migration_info *MigInfos) {
   struct pocl_context *PoclCtx = &RunCmd->pc;
 
   assert(Program->data[DeviceI] != nullptr);
@@ -1364,8 +1366,8 @@ void Level0Queue::runNDRangeKernel(_cl_command_run *RunCmd,
   Level0Kernel *L0Kernel = (Level0Kernel *)Kernel->data[DeviceI];
 
   bool Needs64bitPtrs = false;
-  pocl_buffer_migration_info *MI;
-  LL_FOREACH (Cmd->migr_infos, MI) {
+  pocl_buffer_migration_info *MI = nullptr;
+  LL_FOREACH (MigInfos, MI) {
     if (MI->buffer->size > UINT32_MAX) {
       Needs64bitPtrs = true;
       break;
@@ -1403,6 +1405,9 @@ void Level0Queue::runNDRangeKernel(_cl_command_run *RunCmd,
     void *Ptr = I.first;
     size_t Size = I.second;
     MemPtrsToMakeResident[Ptr] = Size;
+    if (Size > UINT32_MAX) {
+      Needs64bitPtrs = true;
+    }
   }
 
   if (setupKernelArgs(ModuleH, KernelH, Dev, DeviceI, RunCmd)) {
@@ -3117,6 +3122,7 @@ int Level0Device::createBuiltinProgram(cl_program Program, cl_uint DeviceI) {
   assert(Program->data[DeviceI] == nullptr);
   char ProgramCacheDir[POCL_MAX_PATHNAME_LENGTH];
   char ProgramBcPath[POCL_MAX_PATHNAME_LENGTH];
+  /* TODO: better input to Hash value calculation */
   std::string Hash{Program->concated_builtin_names};
   int errcode = pocl_cache_create_program_cachedir (
           Program, DeviceI,
@@ -3129,6 +3135,7 @@ int Level0Device::createBuiltinProgram(cl_program Program, cl_uint DeviceI) {
   Level0BuiltinProgram *ProgramData = Driver->getJobSched().createBuiltinProgram(
       ContextHandle, DeviceHandle, BuildLog,
       Program->num_builtin_kernels, Program->builtin_kernel_names,
+      Program->builtin_kernel_ids, Program->builtin_kernel_attributes,
       ProgramCacheDir, KernelCacheHash);
 
   if (ProgramData == nullptr) {
@@ -3153,12 +3160,6 @@ int Level0Device::createBuiltinProgram(cl_program Program, cl_uint DeviceI) {
 #endif
 }
 
-int Level0Device::createProgram(cl_program Program, cl_uint DeviceI) {
-  if (Program->num_builtin_kernels > 0)
-    return createBuiltinProgram(Program, DeviceI);
-  else
-    return createSpirvProgram(Program, DeviceI);
-}
 
 int Level0Device::freeProgram(cl_program Program, cl_uint DeviceI) {
   if (Program->data[DeviceI] == nullptr) {
@@ -3180,6 +3181,8 @@ int Level0Device::freeProgram(cl_program Program, cl_uint DeviceI) {
   }
   return CL_SUCCESS;
 }
+
+
 
 int Level0Device::createKernel(cl_program Program,
                                cl_kernel Kernel,
