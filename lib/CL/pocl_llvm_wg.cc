@@ -735,13 +735,19 @@ public:
 #define MAX_OUTPUT_BYTES 65536
 
 //   Specify list of allowed/disallowed extensions
-#define ALLOW_INTEL_EXTS                                                       \
+#define LLVM17_INTEL_EXTS                                                      \
   "--spirv-ext=+SPV_INTEL_subgroups,+SPV_INTEL_usm_storage_classes,+SPV_"      \
   "INTEL_arbitrary_precision_integers,+SPV_INTEL_arbitrary_precision_fixed_"   \
   "point,+SPV_INTEL_arbitrary_precision_floating_point,+SPV_INTEL_kernel_"     \
   "attributes,+SPV_KHR_no_integer_wrap_decoration,+SPV_EXT_shader_atomic_"     \
-  "float_add,+SPV_EXT_shader_atomic_float_min_max,+SPV_INTEL_function_pointers" \
-  ",+SPV_EXT_shader_atomic_float16_add"
+  "float_add,+SPV_EXT_shader_atomic_float_min_max,+SPV_INTEL_function_pointers"
+
+#if LLVM_MAJOR >= 18
+#define ALLOW_INTEL_EXTS LLVM17_INTEL_EXTS ",+SPV_EXT_shader_atomic_float16_add"
+#else
+#define ALLOW_INTEL_EXTS LLVM17_INTEL_EXTS
+#endif
+
   /*
   possibly useful:
     "+SPV_INTEL_unstructured_loop_controls,"
@@ -817,8 +823,15 @@ static int convertBCorSPV(char *InputPath,
   EnabledExts[SPIRV::ExtensionID::SPV_KHR_no_integer_wrap_decoration] = true;
   EnabledExts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float_add] = true;
   EnabledExts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float_min_max] = true;
+#if LLVM_MAJOR >= 18
   EnabledExts[SPIRV::ExtensionID::SPV_EXT_shader_atomic_float16_add] = true;
-  SPIRV::TranslatorOpts Opts(SPIRV::VersionNumber::SPIRV_1_2, EnabledExts);
+#endif
+  SPIRV::TranslatorOpts Opts(SPIRV::VersionNumber::SPIRV_1_3, EnabledExts);
+  //Opts.setAllowExtraDIExpressionsEnabled();
+  //Opts.setBuiltinFormat(SPIRV::BuiltinFormat::Function);
+  Opts.setDesiredBIsRepresentation(SPIRV::BIsRepresentation::OpenCL20);
+  //Opts.setPreserveOCLKernelArgTypeMetadataThroughString();
+  Opts.setGenKernelArgNameMDEnabled(true);
 #endif
   int r = -1;
 
@@ -850,7 +863,15 @@ static int convertBCorSPV(char *InputPath,
     pocl_cache_tempname(HiddenInputPath, (reverse ? ".spv" : ".bc"), NULL);
   }
 
-#ifdef USE_LLVM_SPIRV_LIB
+  if (InputContent && InputSize) {
+    r = pocl_write_file(HiddenInputPath, InputContent, InputSize, 0);
+    if (r != 0) {
+      BuildLog->append("failed to write input file for llvm-spirv\n");
+      goto FINISHED;
+    }
+  }
+
+#ifdef HAVE_LLVM_SPIRV_LIB
   if (reverse) {
     // SPIRV to BC
     std::string InputS;
@@ -888,8 +909,7 @@ static int convertBCorSPV(char *InputPath,
 
   } else {
     // BC to SPIRV
-    std::string OutputSpirv;
-    std::stringstream SS(OutputSpirv);
+    std::stringstream SS;
 //    if (InputLLVMIR) {
 //      Mod = (llvm::Module *)InputLLVMIR;
 //    } else {
@@ -906,7 +926,7 @@ static int convertBCorSPV(char *InputPath,
     }
 
     // TODO maybe use context from program ?
-    if (!regularizeLlvmForSpirv(Mod, Errors)) {
+    if (!regularizeLlvmForSpirv(Mod, Errors, Opts)) {
       BuildLog->append("LLVMSPIRVLib: Regularize failed with errors:\n");
       BuildLog->append(Errors.c_str());
       goto FINISHED;
@@ -917,6 +937,7 @@ static int convertBCorSPV(char *InputPath,
       goto FINISHED;
     }
     SS.flush();
+    std::string OutputSpirv = SS.str();
     assert(OutputSpirv.size() > 20);
     Content = (char*)malloc(OutputSpirv.size());
     assert(Content);
@@ -927,25 +948,18 @@ static int convertBCorSPV(char *InputPath,
   if (OutContent && OutSize) {
     *OutContent = Content;
     *OutSize = ContentSize;
-    r = 0;
-  } else {
-    // write to output file
-    r = pocl_write_file(HiddenOutputPath, Content, ContentSize, 0);
-    if (r != 0) {
-      BuildLog->append("failed to write output file from LLVMSPIRVLib\n");
-      goto FINISHED;
-    }
-    free(Content); Content = nullptr;
+  }
+  // write to output file
+  r = pocl_write_file(HiddenOutputPath, Content, ContentSize, 0);
+  if (!(OutContent && OutSize)) {
+    free(Content);
+  }
+  if (r != 0) {
+    BuildLog->append("failed to write output file from LLVMSPIRVLib\n");
+    goto FINISHED;
   }
 #else
 
-  if (InputContent && InputSize) {
-    r = pocl_write_file(HiddenInputPath, InputContent, InputSize, 0);
-    if (r != 0) {
-      BuildLog->append("failed to write input file for llvm-spirv\n");
-      goto FINISHED;
-    }
-  }
   // generate program.spv
   CompilationArgs.push_back(LLVM_SPIRV);
 #if (LLVM_MAJOR == 15) || (LLVM_MAJOR == 16)
