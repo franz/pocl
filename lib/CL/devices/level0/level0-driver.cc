@@ -1570,7 +1570,8 @@ void Level0Queue::run(_cl_command_node *Cmd) {
   if (Program->num_builtin_kernels > 0)
     runBuiltinKernel(RunCmd, Dev, Event, Program, Kernel, DeviceI);
   else
-    runNDRangeKernel(RunCmd, Dev, Event, Program, Kernel, DeviceI);
+    runNDRangeKernel(RunCmd, Dev, Event, Program, Kernel, DeviceI,
+                     Cmd->migr_infos);
 }
 
 void Level0Queue::runBuiltinKernel(_cl_command_run *RunCmd,
@@ -1632,19 +1633,21 @@ void Level0Queue::runBuiltinKernel(_cl_command_run *RunCmd,
       MemPtr = arg_buf->mem_host_ptr;
 //    }
     POCL_MSG_PRINT_LEVEL0("NPU: setting argument %u to: %p\n", graphArgIndex, MemPtr);
-    ZeRes = Ext->pfnSetArgumentValue(GraphH, graphArgIndex++, MemPtr);
-    LEVEL0_CHECK_ABORT(ZeRes);
+    LEVEL0_CHECK_ABORT(Ext->pfnSetArgumentValue(GraphH, graphArgIndex++, MemPtr));
   }
 
+  POCL_MSG_PRINT_LEVEL0("NPU: append GraphInitialize\n");
   allocNextFreeEvent();
-  ZeRes = Ext->pfnAppendGraphInitialize(CmdListH, GraphH,
-                                        CurrentEventH, 0, nullptr);
-  LEVEL0_CHECK_ABORT(ZeRes);
+  LEVEL0_CHECK_ABORT(Ext->pfnAppendGraphInitialize(CmdListH, GraphH,
+                                        CurrentEventH,
+                                        PreviousEventH ? 1 : 0,
+                                        PreviousEventH ? &PreviousEventH : nullptr));
 
   POCL_MSG_PRINT_LEVEL0("NPU: append GraphExecute\n");
-  ZeRes = Ext->pfnAppendGraphExecute(CmdListH, GraphH,
-                                     nullptr, nullptr, 1, &CurrentEventH);
-  LEVEL0_CHECK_ABORT(ZeRes);
+  allocNextFreeEvent();
+  LEVEL0_CHECK_ABORT(Ext->pfnAppendGraphExecute(CmdListH, GraphH, nullptr,
+                                     CurrentEventH, PreviousEventH ? 1 : 0,
+                                     PreviousEventH ? &PreviousEventH : nullptr));
 #else
   POCL_MSG_ERR("Can't execute builtin kernels without VPU support");
 #endif
@@ -1656,7 +1659,8 @@ void Level0Queue::runNDRangeKernel(_cl_command_run *RunCmd,
                                    cl_event Event,
                                    cl_program Program,
                                    cl_kernel Kernel,
-                                   unsigned DeviceI) {
+                                   unsigned DeviceI,
+                                   pocl_buffer_migration_info *MigInfos) {
   struct pocl_context *PoclCtx = &RunCmd->pc;
 
   assert(Program->data[DeviceI] != nullptr);
@@ -1674,8 +1678,8 @@ void Level0Queue::runNDRangeKernel(_cl_command_run *RunCmd,
   }
 
   bool Needs64bitPtrs = false;
-  pocl_buffer_migration_info *MI;
-  LL_FOREACH (Cmd->migr_infos, MI) {
+  pocl_buffer_migration_info *MI = nullptr;
+  LL_FOREACH (MigInfos, MI) {
     if (MI->buffer->size > UINT32_MAX) {
       Needs64bitPtrs = true;
       break;
@@ -1713,6 +1717,9 @@ void Level0Queue::runNDRangeKernel(_cl_command_run *RunCmd,
     void *Ptr = I.first;
     size_t Size = I.second;
     MemPtrsToMakeResident[Ptr] = Size;
+    if (Size > UINT32_MAX) {
+      Needs64bitPtrs = true;
+    }
   }
 
   if (setupKernelArgs(ModuleH, KernelH, Dev, DeviceI, RunCmd)) {
@@ -2192,7 +2199,7 @@ bool Level0Device::setupComputeProperties() {
   ComputeProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES;
   ComputeProperties.pNext = nullptr;
   Res = zeDeviceGetComputeProperties(DeviceHandle, &ComputeProperties);
-  if (Res != ZE_RESULT_SUCCESS) {
+  if (Res != ZE_RESULT_SUCCESS || ComputeProperties.maxTotalGroupSize == 0) {
     POCL_MSG_PRINT_LEVEL0("%s: zeDeviceGetComputeProperties failed\n",
                           ClDev->short_name);
     // some defaults
@@ -2813,6 +2820,11 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
                       " cl_khr_int64_extended_atomics");
   }
 
+  if (ClDev->type == CL_DEVICE_TYPE_CUSTOM) {
+    Extensions.append(" cl_exp_tensor"
+                      " cl_exp_defined_builtin_kernels");
+  }
+
   if (ClDev->half_fp_config != 0u) {
     Extensions.append(" cl_khr_fp16");
     OpenCL30Features.append(" __opencl_c_fp16");
@@ -2885,12 +2897,14 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
 
   if (ClDev->type == CL_DEVICE_TYPE_CUSTOM
       || ClDev->type == CL_DEVICE_TYPE_ACCELERATOR) {
-    ClDev->extensions = "";
+    ClDev->extensions = Extensions.c_str();
     ClDev->features = "";
-//    pocl_setup_extensions_with_version(ClDev);
+    POCL_MSG_WARN("@@@@ DEVICE EXTENSIONS:\n   %s\n", ClDev->extensions);
+    pocl_setup_extensions_with_version(ClDev);
 
 #ifdef ENABLE_NPU
     pocl::getNpuGraphModelsList(BuiltinKernels, NumBuiltinKernels);
+    POCL_MSG_WARN("NPU Model list:\n %s\n", BuiltinKernels.c_str());
     ClDev->builtin_kernel_list = BuiltinKernels.data();
     ClDev->num_builtin_kernels = NumBuiltinKernels;
 
@@ -3572,6 +3586,7 @@ int Level0Device::createBuiltinProgram(cl_program Program, cl_uint DeviceI) {
   assert(Program->data[DeviceI] == nullptr);
   char ProgramCacheDir[POCL_MAX_PATHNAME_LENGTH];
   char ProgramBcPath[POCL_MAX_PATHNAME_LENGTH];
+  /* TODO: better input to Hash value calculation */
   std::string Hash{Program->concated_builtin_names};
   int errcode = pocl_cache_create_program_cachedir (
           Program, DeviceI,
@@ -3584,6 +3599,7 @@ int Level0Device::createBuiltinProgram(cl_program Program, cl_uint DeviceI) {
   Level0BuiltinProgram *ProgramData = Driver->getJobSched().createBuiltinProgram(
       ContextHandle, DeviceHandle, BuildLog,
       Program->num_builtin_kernels, Program->builtin_kernel_names,
+      Program->builtin_kernel_ids, Program->builtin_kernel_attributes,
       ProgramCacheDir, KernelCacheHash);
 
   if (ProgramData == nullptr) {
@@ -3608,14 +3624,9 @@ int Level0Device::createBuiltinProgram(cl_program Program, cl_uint DeviceI) {
 #endif
 }
 
-int Level0Device::createProgram(cl_program Program, cl_uint DeviceI) {
-  if (Program->num_builtin_kernels > 0)
-    return createBuiltinProgram(Program, DeviceI);
-  else
-    return createSpirvProgram(Program, DeviceI);
-}
 
 int Level0Device::freeProgram(cl_program Program, cl_uint DeviceI) {
+  /* module can be NULL if compilation fails */
   if (Program->data[DeviceI] == nullptr) {
     return CL_SUCCESS;
   }
@@ -3635,6 +3646,8 @@ int Level0Device::freeProgram(cl_program Program, cl_uint DeviceI) {
   }
   return CL_SUCCESS;
 }
+
+
 
 int Level0Device::createKernel(cl_program Program,
                                cl_kernel Kernel,

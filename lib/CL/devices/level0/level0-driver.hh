@@ -219,7 +219,8 @@ private:
                         cl_event Event,
                         cl_program Program,
                         cl_kernel Kernel,
-                        unsigned DeviceI);
+                        unsigned DeviceI,
+                        pocl_buffer_migration_info *MigInfos);
 
   void execCommand(_cl_command_node *Cmd);
   void execCommandBatch(BatchType &Batch);
@@ -327,7 +328,8 @@ public:
                                    cl_bool NormalizedCoords);
   static void freeSampler(ze_sampler_handle_t SamplerH);
 
-  int createProgram(cl_program Program, cl_uint DeviceI);
+  int createSpirvProgram(cl_program Program, cl_uint DeviceI);
+  int createBuiltinProgram(cl_program Program, cl_uint DeviceI);
   int freeProgram(cl_program Program, cl_uint DeviceI);
 
   int createKernel(cl_program Program,
@@ -486,8 +488,6 @@ private:
   bool setupImageProperties();
   bool setupPCIAddress();
 
-  int createSpirvProgram(cl_program Program, cl_uint DeviceI);
-  int createBuiltinProgram(cl_program Program, cl_uint DeviceI);
 };
 
 typedef std::unique_ptr<Level0Device> Level0DeviceUPtr;

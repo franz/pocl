@@ -24,11 +24,13 @@
 
 #include "common.h"
 #include "common_driver.h"
+#include "common_utils.h"
 #include "devices.h"
 #include "pocl_cl.h"
 #include "utlist.h"
 
 #include "pocl-level0.h"
+#include "pocl_builtin_kernels.h"
 #include "pocl_cache.h"
 #include "pocl_debug.h"
 #include "pocl_file_util.h"
@@ -196,6 +198,8 @@ void pocl_level0_init_device_ops(struct pocl_device_ops *Ops) {
   Ops->build_poclbinary = pocl_level0_build_poclbinary;
   Ops->build_builtin = pocl_level0_build_builtin;
   Ops->compile_kernel = nullptr;
+  Ops->supports_dbk = pocl_level0_supports_dbk;
+  Ops->build_defined_builtin = pocl_level0_build_builtin;
   Ops->create_kernel = pocl_level0_create_kernel;
   Ops->free_kernel = pocl_level0_free_kernel;
   Ops->init_build = pocl_level0_init_build;
@@ -610,7 +614,7 @@ int pocl_level0_build_source(cl_program Program, cl_uint DeviceI,
 
   if (LinkProgram != 0) {
     pocl_llvm_recalculate_gvar_sizes(Program, DeviceI);
-    return Device->createProgram(Program, DeviceI);
+    return Device->createSpirvProgram(Program, DeviceI);
   } else {
     // only final (linked) programs have  ZE module
     assert(Program->data[DeviceI] == nullptr);
@@ -746,9 +750,9 @@ int pocl_level0_build_binary(cl_program Program, cl_uint DeviceI,
     // for Metadata, read the Bitcode into LLVM::Module
     pocl_llvm_read_program_llvm_irs(Program, DeviceI, ProgramBcPath);
     pocl_llvm_recalculate_gvar_sizes(Program, DeviceI);
-    return Device->createProgram(Program, DeviceI);
+    return Device->createSpirvProgram(Program, DeviceI);
   } else {
-    // only final (linked) programs have  ZE module
+    // only final (linked) programs have ZE module
     assert(Program->data[DeviceI] == nullptr);
     return CL_SUCCESS;
   }
@@ -861,7 +865,7 @@ int pocl_level0_link_program(cl_program Program, cl_uint DeviceI,
     // for Metadata, read the Bitcode into LLVM::Module
     pocl_llvm_read_program_llvm_irs(Program, DeviceI, ProgramBcPath);
     pocl_llvm_recalculate_gvar_sizes(Program, DeviceI);
-    return Device->createProgram(Program, DeviceI);
+    return Device->createSpirvProgram(Program, DeviceI);
   } else {
     // only final (linked) programs have  ZE module
     assert(Program->data[DeviceI] == nullptr);
@@ -875,7 +879,6 @@ int pocl_level0_free_program(cl_device_id ClDevice, cl_program Program,
 #ifdef ENABLE_LLVM
   pocl_llvm_free_llvm_irs(Program, ProgramDeviceI);
 #endif
-  /* module can be NULL if compilation fails */
   Device->freeProgram(Program, ProgramDeviceI);
   return CL_SUCCESS;
 }
@@ -980,6 +983,8 @@ static int pocl_level0_setup_spirv_metadata(cl_device_id Device,
   return 1;
 }
 
+// ********************* TODO delete & replace with pocl_driver_setup_metadata ?
+/*
 static int pocl_level0_setup_builtin_metadata(cl_device_id ClDev,
                                             cl_program Program,
                                             unsigned ProgramDeviceI) {
@@ -1008,11 +1013,110 @@ static int pocl_level0_setup_builtin_metadata(cl_device_id ClDev,
   return 0;
 #endif
 }
+*/
+
+#ifdef ENABLE_NPU
+
+static bool pocl_npu_is_layout_gemm(cl_uint Rank, const void *Layout) {
+  const cl_tensor_layout_ml *Ptr = (cl_tensor_layout_ml *)Layout;
+
+  // supported layouts from openvino compiler plugin / "rankToLegacyLayoutString":
+  // C, NC, CHW, NCHW, NCDHW
+  if (Ptr->ml_type == CL_TENSOR_LAYOUT_ML_NC && Rank == 2)
+    return true;
+  if (Ptr->ml_type == CL_TENSOR_LAYOUT_ML_CHW && Rank == 3)
+    return true;
+  return false;
+}
+
+int
+pocl_npu_validate_khr_gemm (cl_bool TransA,
+                            cl_bool TransB,
+                            const cl_tensor_desc *TenA,
+                            const cl_tensor_desc *TenB,
+                            const cl_tensor_desc *TenCIOpt,
+                            const cl_tensor_desc *TenCOut,
+                            const cl_tensor_datatype_value *Alpha,
+                            const cl_tensor_datatype_value *Beta)
+{
+
+  /* datatype match between A&B and CIopt&COut already checked in
+   * initial validation (pocl_validate_khr_gemm) */
+
+  /* currently FP 16-64 and INT 8-64 are supported */
+  POCL_RETURN_ERROR_ON ((TenA->dtype == CL_TENSOR_DTYPE_FP8E4M3
+                         || TenA->dtype == CL_TENSOR_DTYPE_FP8E5M2
+                         || TenA->dtype == CL_TENSOR_DTYPE_INT4
+                         || TenCOut->dtype == CL_TENSOR_DTYPE_FP8E4M3
+                         || TenCOut->dtype == CL_TENSOR_DTYPE_FP8E5M2
+                         || TenCOut->dtype == CL_TENSOR_DTYPE_INT4),
+                        CL_INVALID_TENSOR_DATATYPE,
+                        "Datatype support not yet implemented. NPU supports "
+                        "only FP16/32/64 and INT8/16/32/64 currently\n");
+
+//  POCL_RETURN_ERROR_ON (((TenA->dtype != CL_TENSOR_DTYPE_FP16
+//                         && TenA->dtype != CL_TENSOR_DTYPE_INT8)
+//                         ||
+//                        (TenCOut->dtype != CL_TENSOR_DTYPE_FP16
+//                         && TenCOut->dtype != CL_TENSOR_DTYPE_INT8)),
+//                        CL_INVALID_DBK_DATATYPE,
+//                        "Datatype support not yet implemented. NPU supports "
+//                        "only FP16 and INT8 currently\n");
+
+  /* type mixing check */
+  POCL_RETURN_ERROR_ON ((pocl_tensor_type_is_int (TenA->dtype)
+                         != pocl_tensor_type_is_int (TenCOut->dtype)),
+                        CL_INVALID_TENSOR_DATATYPE,
+                        "Datatype mixing (INT & FP) not supported\n");
+
+  POCL_RETURN_ERROR_ON ((pocl_tensor_type_size (TenA->dtype)
+                         > pocl_tensor_type_size (TenCOut->dtype)),
+                        CL_INVALID_TENSOR_DATATYPE,
+                        "Datatype of C is smaller than A\n");
+
+  /* check validity of data layouts of the tensors. */
+  POCL_RETURN_ERROR_ON ((TenA->layout_type != CL_TENSOR_LAYOUT_ML
+                        || TenB->layout_type != CL_TENSOR_LAYOUT_ML
+                        || TenCOut->layout_type != CL_TENSOR_LAYOUT_ML
+                        || (TenCIOpt && TenCIOpt->layout_type != CL_TENSOR_LAYOUT_ML)),
+                        CL_INVALID_TENSOR_LAYOUT, "GEMM on NPU device only supports ML layouts\n"
+                        );
+
+  POCL_RETURN_ERROR_ON ((!pocl_npu_is_layout_gemm(TenA->rank, TenA->layout)
+      || !pocl_npu_is_layout_gemm(TenB->rank, TenB->layout)
+      || !pocl_npu_is_layout_gemm(TenCOut->rank, TenCOut->layout)
+      || (TenCIOpt &&
+          !pocl_npu_is_layout_gemm(TenCIOpt->rank, TenCIOpt->layout))),
+      CL_INVALID_TENSOR_LAYOUT,
+      "GEMM on NPU device only supports C, NC, CHW, NCHW, NCDHW layouts\n");
+
+  return CL_SUCCESS;
+}
+#endif
+
+
+int pocl_level0_supports_dbk (cl_device_id device,
+                              BuiltinKernelId kernel_id,
+                              const void *kernel_attributes) {
+#ifdef ENABLE_NPU
+  /* check for NPU specific requirements on Tensors */
+  return pocl_validate_dbk_attributes (kernel_id, kernel_attributes,
+                                       pocl_npu_validate_khr_gemm );
+
+#else
+  POCL_RETURN_ERROR_ON (1, CL_UNSUPPORTED_DBK,
+                        "The LevelZero driver must be compiled with enabled "
+                        "NPU to support tensor DBKs\n");
+#endif
+
+}
+
 
 int pocl_level0_setup_metadata(cl_device_id Dev, cl_program Program,
                                unsigned ProgramDeviceI) {
   if (Program->num_builtin_kernels) {
-    return pocl_level0_setup_builtin_metadata(Dev, Program, ProgramDeviceI);
+//    return pocl_level0_setup_builtin_metadata(Dev, Program, ProgramDeviceI);
+    return pocl_driver_setup_metadata(Dev, Program, ProgramDeviceI);
   }
   // using the LLVM::Module as source for metadata gets more reliable info
   // than SPIR-V parsing. TODO make the SPIR-V parsing work, so we don't have
@@ -1062,12 +1166,21 @@ int pocl_level0_build_poclbinary(cl_program Program, cl_uint DeviceI) {
   return (Program->binaries[DeviceI] ? CL_SUCCESS : CL_BUILD_PROGRAM_FAILURE);
 }
 
-int pocl_level0_build_builtin (cl_program Program, cl_uint DeviceI) {
+int pocl_level0_build_builtin(cl_program Program, cl_uint DeviceI) {
   cl_device_id Dev = Program->devices[DeviceI];
   Level0Device *Device = (Level0Device *)Dev->data;
 
-  return Device->createProgram(Program, DeviceI);
+  return Device->createBuiltinProgram(Program, DeviceI);
 }
+
+/*
+int pocl_level0_build_defined_builtin(cl_program Program, cl_uint DeviceI) {
+  cl_device_id Dev = Program->devices[DeviceI];
+  Level0Device *Device = (Level0Device *)Dev->data;
+
+  return Device->createDefinedBuiltinProgram(Program, DeviceI);
+}
+*/
 
 int pocl_level0_init_queue(cl_device_id Dev, cl_command_queue Queue) {
   PoclL0QueueData *QD = new PoclL0QueueData;

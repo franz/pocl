@@ -404,6 +404,8 @@ public:
                        ze_device_handle_t Dev,
                        size_t NumBuiltinKernels,
                        char **BuiltinKernelNames,
+                       void *BuiltinKernelIDs, // IDs for DBKs
+                       void **BuiltinKernelAttrs, // Attrs for DBKs
                        const char *CDir,
                        const std::string &UUID);
   virtual bool init() override;
@@ -415,6 +417,9 @@ public:
   Level0BuiltinProgram& operator=(Level0BuiltinProgram &&) = delete;
 
   const std::vector<std::string> &getKernelNames() { return KernelNames; }
+  const std::vector<unsigned> &getKernelIDs() { return KernelIDs; }
+  const std::vector<void*> &getKernelAttrs() { return KernelAttrs; }
+  bool isDBK() const { return IsDBK; }
 
   /// for cl_kernel creation device->ops callback
   Level0BuiltinKernel *createKernel(const std::string Name); //, ze_graph_handle_t G);
@@ -443,6 +448,8 @@ public:
 
 private:
   std::vector<std::string> KernelNames;
+  std::vector<unsigned> KernelIDs;
+  std::vector<void *> KernelAttrs;
 
   Level0BuiltinProgramBuildUPtr FinishedBuild;
 
@@ -451,6 +458,7 @@ private:
   /// helper Queue in the destination Context, for initialization of graphs
   ze_command_queue_handle_t QueueH;
   ze_command_list_handle_t ListH;
+  bool IsDBK;
 };
 
 void getNpuGraphModelsList(std::string &Out, unsigned &NumKernels);
@@ -536,59 +544,63 @@ protected:
 };
 
 #ifdef ENABLE_NPU
-struct Level0BuiltinKernelBuild {
+struct Level0BuiltinKernelBuildResult {
   /// VPU binary + Shave(VLIW) binary, in native format
   std::vector<uint8_t> VpuNativeBinary;
   std::vector<uint8_t> ShaveNativeBinary;
-  std::string Name;
+
   ///  this handle is valid for the *target* (loadBinary) context,
   ///  not the compilation thread's context.
   ze_graph_handle_t GraphHFinal;
   graph_dditable_ext_t *GraphDDITable;
 
-  Level0BuiltinKernelBuild(Level0BuiltinKernelBuild const &) = delete;
-  Level0BuiltinKernelBuild &operator=(Level0BuiltinKernelBuild const &) = delete;
+  Level0BuiltinKernelBuildResult(Level0BuiltinKernelBuildResult const &) = delete;
+  Level0BuiltinKernelBuildResult &operator=(Level0BuiltinKernelBuildResult const &) = delete;
 
-  Level0BuiltinKernelBuild(Level0BuiltinKernelBuild &&O) {
+  Level0BuiltinKernelBuildResult(Level0BuiltinKernelBuildResult &&O) {
     VpuNativeBinary = std::move(O.VpuNativeBinary);
     ShaveNativeBinary = std::move(O.ShaveNativeBinary);
     GraphHFinal = O.GraphHFinal;
     O.GraphHFinal = nullptr;
     GraphDDITable = O.GraphDDITable;
     O.GraphDDITable = nullptr;
-    Name = std::move(O.Name);
   }
-  Level0BuiltinKernelBuild &operator=(Level0BuiltinKernelBuild &&O) {
+  Level0BuiltinKernelBuildResult &operator=(Level0BuiltinKernelBuildResult &&O) {
     VpuNativeBinary = std::move(O.VpuNativeBinary);
     ShaveNativeBinary = std::move(O.ShaveNativeBinary);
     GraphHFinal = O.GraphHFinal;
     O.GraphHFinal = nullptr;
     GraphDDITable = O.GraphDDITable;
     O.GraphDDITable = nullptr;
-    Name = std::move(O.Name);
     return *this;
   }
 
-  Level0BuiltinKernelBuild(graph_dditable_ext_t *DDI, const std::string &N)
-    : Name(N), GraphHFinal(nullptr), GraphDDITable(DDI) {}
+  Level0BuiltinKernelBuildResult(graph_dditable_ext_t *DDI)
+    : GraphHFinal(nullptr), GraphDDITable(DDI) {}
 
-  ~Level0BuiltinKernelBuild() {
+  ~Level0BuiltinKernelBuildResult() {
     if (GraphHFinal) {
       GraphDDITable->pfnDestroy(GraphHFinal);
     }
   }
 
-  bool setupBuiltinKernelMetadata(void *MetaPtr);
+  bool setupBuiltinKernelMetadata(const char* Name, void *MetaPtr);
 };
+
+typedef bool (*instantiateModelTemplate_fn)(const void* KernelAttrs,
+                                           std::string &ModelXMLInstance,
+                                           std::string &BuildFlagsInstance);
 
 struct Level0Model {
   std::string Name;
+  unsigned DBK_ID;
   ze_graph_format_t Format;
   std::string NativeBin;
   std::string NativeShaveBin;
   std::string NGraphXml;
   std::string NGraphBin;
-  const char* BuildFlags;
+  const std::string BuildFlags;
+  instantiateModelTemplate_fn instantiateModel;
 };
 
 class Level0BuiltinProgramBuild : public Level0BuildBase {
@@ -625,27 +637,27 @@ private:
   /// optionally calling compileFromXmlBin if the model is in XML format
   bool loadModel(ze_context_handle_t ContextH,
                  ze_device_handle_t DeviceH,
-                 const Level0Model *M,
-                 Level0BuiltinKernelBuild &Out);
+                 const Level0Model *M, const void *KernelAttrs,
+                 Level0BuiltinKernelBuildResult &Out);
 
   /// loads a single Native Binary, in destination context & device
   bool loadBinary(ze_context_handle_t ContextH,
                   ze_device_handle_t DeviceH,
                   ze_command_queue_handle_t QueueH,
                   ze_command_list_handle_t ListH,
-                  Level0BuiltinKernelBuild &Out);
+                  Level0BuiltinKernelBuildResult &Out);
 
   /// compiles a graph from XML+Bin to Native VPU binary
   bool compileFromXmlBin(ze_context_handle_t ContextH,
                          ze_device_handle_t DeviceH,
                          const std::vector<uint8_t> &ModelXml,
                          const std::vector<uint8_t> &ModelBin,
-                         const char* BuildFlags,
+                         const std::string &BuildFlags,
                          std::string ProgCachePath,
                          std::string ProgNativeDir,
-                         Level0BuiltinKernelBuild &Out);
+                         Level0BuiltinKernelBuildResult &Out);
 
-  std::map<std::string, Level0BuiltinKernelBuild> KernelBuilds;
+  std::map<std::string, Level0BuiltinKernelBuildResult> KernelBuilds;
 
   /// assumes this pointer is valid & alive during the whole build duration,
   /// should be OK because CompilationJob keeps a shared_ptr
@@ -942,6 +954,8 @@ public:
                                              std::string &BuildLog,
                                              size_t num_builtin_kernels,
                                              char **builtin_kernel_names,
+                                             void *builtin_kernel_ids,
+                                             void **builtin_kernel_attributes,
                                              const char *CDir,
                                              const std::string &UUID);
 
