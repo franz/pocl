@@ -50,11 +50,13 @@ typedef cl_uint cl_tensor_datatype;
 #define CL_TENSOR_DTYPE_FP16 7
 #define CL_TENSOR_DTYPE_INT16 8
 #define CL_TENSOR_DTYPE_UINT16 9
-#define CL_TENSOR_DTYPE_FP8 10
-#define CL_TENSOR_DTYPE_INT8 11
-#define CL_TENSOR_DTYPE_UINT8 12
-#define CL_TENSOR_DTYPE_INT4 13
-#define CL_TENSOR_DTYPE_UINT4 14
+#define CL_TENSOR_DTYPE_INT8 10
+#define CL_TENSOR_DTYPE_UINT8 11
+#define CL_TENSOR_DTYPE_INT4 12
+#define CL_TENSOR_DTYPE_UINT4 13
+#define CL_TENSOR_DTYPE_FP8E4M3 14
+#define CL_TENSOR_DTYPE_FP8E5M2 15
+#define CL_TENSOR_DTYPE_FP8 39842
 #define CL_TENSOR_DTYPE_LAST 15
 
 /* cl_tensor_datatype_value is used to pass POD data to DBKs (like Alpha & Beta
@@ -220,7 +222,8 @@ typedef cl_uint cl_tensor_layout_ml_type;
 #define CL_TENSOR_LAYOUT_ML_CHW 5
 #define CL_TENSOR_LAYOUT_ML_NCHW 6
 #define CL_TENSOR_LAYOUT_ML_NHWC 7
-#define CL_TENSOR_LAYOUT_ML_LAST 8
+#define CL_TENSOR_LAYOUT_ML_WH 8
+#define CL_TENSOR_LAYOUT_ML_LAST 9
 
 
 
