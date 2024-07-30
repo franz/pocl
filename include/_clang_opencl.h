@@ -359,11 +359,13 @@ intel_work_group_barrier_arrive(cl_mem_fence_flags flags);
 void _CL_OVERLOADABLE
 intel_work_group_barrier_wait(cl_mem_fence_flags flags);
 // For OpenCL C 2.0 or newer:
+#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 void _CL_OVERLOADABLE
 intel_work_group_barrier_arrive(cl_mem_fence_flags flags, memory_scope scope);
 void _CL_OVERLOADABLE
 intel_work_group_barrier_wait(cl_mem_fence_flags flags, memory_scope scope);
 #endif
+#endif // cl_intel_split_work_group_barrier
 
 
 #endif
