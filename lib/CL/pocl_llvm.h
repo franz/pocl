@@ -102,6 +102,9 @@ extern "C" {
   int pocl_llvm_read_program_llvm_irs (cl_program program, unsigned device_i,
                                        const char *path);
 
+  POCL_EXPORT
+  int pocl_llvm_recalculate_gvar_sizes(cl_program Program, unsigned DeviceI);
+
   /* Free the LLVM IR of a program for a given device */
   POCL_EXPORT
   void pocl_llvm_free_llvm_irs (cl_program program, unsigned device_i);
