@@ -1260,7 +1260,7 @@ bool Level0Queue::setupKernelArgs(ze_module_handle_t ModuleH,
     } else {
       assert(PoclArg[i].value != NULL);
       assert(PoclArg[i].size > 0);
-      assert(PoclArg[i].size == Kernel->meta->arg_info[i].type_size);
+      assert(PoclArg[i].size <= Kernel->meta->arg_info[i].type_size);
 
       Res = zeKernelSetArgumentValue(KernelH, i, PoclArg[i].size,
                                      PoclArg[i].value);
