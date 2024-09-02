@@ -1083,19 +1083,6 @@ bool Level0BuiltinProgramBuild::compileFromXmlBin(ze_context_handle_t ContextH,
   return true;
 }
 
-bool Level0BuiltinProgramBuild::setupBuiltinKernelMetadata(const char* Name, void *MetaPtr) {
-  auto It = KernelBuilds.find(Name);
-  if (KernelBuilds.empty())
-    POCL_MSG_ERR("KernelBuilds.empty \n");
-  if (It == KernelBuilds.end()) {
-    POCL_MSG_ERR("LevelZero: setupBuiltinKernelMetadata: "
-                 "can't find kernel %s \n", Name);
-    return false;
-  }
-  POCL_MSG_PRINT_LEVEL0(" BuiltinProgramBuild::setupMeta | %s \n", Name);
-  return It->second.setupBuiltinKernelMetadata(Name, MetaPtr);
-}
-
 static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
                               size_t &TotalSize,
                               std::string &TypeName
@@ -1167,78 +1154,6 @@ static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
   }
 
   assert(TotalSize != 0);
-}
-
-bool Level0BuiltinKernelBuildResult::setupBuiltinKernelMetadata(const char* Name, void *MetaPtr) {
-  ze_graph_properties_t graphProps{};
-  ze_result_t Res = GraphDDITable->pfnGetProperties(GraphHFinal, &graphProps);
-  if (Res != ZE_RESULT_SUCCESS) {
-    POCL_MSG_ERR("GraphDDITable->pfnGetProperties failed \n");
-    return false;
-  }
-
-  std::vector<ze_graph_argument_properties_t> graphArgProps;
-  graphArgProps.resize(graphProps.numGraphArgs);
-  for (uint32_t i = 0; i < graphProps.numGraphArgs; i++) {
-    Res = GraphDDITable->pfnGetArgumentProperties(GraphHFinal, i,
-                                                  &graphArgProps[i]);
-    if (Res != ZE_RESULT_SUCCESS) {
-      POCL_MSG_ERR("GraphDDITable->pfnGetProperties failed \n");
-      return false;
-    }
-  }
-
-  pocl_kernel_metadata_t *Meta = static_cast<pocl_kernel_metadata_t *>(MetaPtr);
-  Meta->num_args = graphProps.numGraphArgs;
-  Meta->num_locals = 0;
-  Meta->local_sizes = nullptr;
-  Meta->name = strdup(Name);
-  Meta->arg_info = (struct pocl_argument_info *)calloc(
-      Meta->num_args, sizeof(struct pocl_argument_info));
-
-  Meta->has_arg_metadata = POCL_HAS_KERNEL_ARG_ACCESS_QUALIFIER |
-                           POCL_HAS_KERNEL_ARG_ADDRESS_QUALIFIER |
-                           POCL_HAS_KERNEL_ARG_TYPE_NAME |
-                           POCL_HAS_KERNEL_ARG_TYPE_QUALIFIER |
-                           POCL_HAS_KERNEL_ARG_NAME;
-
-  Meta->total_argument_storage_size = Meta->num_args * sizeof(cl_mem);
-
-  // TODO maximum global work size usable with the kernel.
-  // Only applies to builtin kernels
-  //size_t_3 builtin_max_global_work;
-
-  cl_kernel_arg_address_qualifier Addr;
-  cl_kernel_arg_access_qualifier Access;
-  Addr = CL_KERNEL_ARG_ADDRESS_GLOBAL;
-  Access = CL_KERNEL_ARG_ACCESS_NONE;
-
-  size_t TotalSize;
-  std::string TypeName;
-  for (uint32_t i = 0; i < graphProps.numGraphArgs; i++) {
-    getArgTypeAndSize(graphArgProps[i], TotalSize, TypeName);
-    TypeName.append("*");
-    Meta->arg_info[i].access_qualifier = Access;
-    Meta->arg_info[i].address_qualifier = Addr;
-    Meta->arg_info[i].type = POCL_ARG_TYPE_POINTER;
-    Meta->arg_info[i].type_size = sizeof(cl_mem);
-    Meta->arg_info[i].type_name = strdup(TypeName.c_str());
-    Meta->arg_info[i].name = strdup(graphArgProps[i].name);
-    POCL_MSG_PRINT_LEVEL0("ARG %u : Layout %u ||| DIMS: %u %u %u %u\n", i,
-                          (unsigned)graphArgProps[i].deviceLayout,
-                          graphArgProps[i].dims[0], graphArgProps[i].dims[1],
-                          graphArgProps[i].dims[2], graphArgProps[i].dims[3]);
-    // add const qualifier to read-only args
-    if (graphArgProps[i].type == ZE_GRAPH_ARGUMENT_TYPE_INPUT) {
-      Meta->arg_info[i].type_qualifier = CL_KERNEL_ARG_TYPE_CONST;
-    } else {
-      Meta->arg_info[i].type_qualifier = CL_KERNEL_ARG_TYPE_NONE;
-    }
-
-  }
-  POCL_MSG_PRINT_LEVEL0("metadata setup successful for kernel %s\n",
-                        Meta->name);
-  return true;
 }
 
 
@@ -1687,14 +1602,6 @@ bool Level0BuiltinProgram::getBestKernel(Level0BuiltinKernel *BKernel,
   return true;
 }
 
-bool Level0BuiltinProgram::setupBuiltinKernelMetadata(const char* Name,
-                                                      void *MetaPtr) {
-  std::lock_guard<std::mutex> LockGuard(Mutex);
-  assert((bool)FinishedBuild);
-
-  // TODO
-  return FinishedBuild->setupBuiltinKernelMetadata(Name, MetaPtr);
-}
 
 
 Level0BuiltinKernel::Level0BuiltinKernel(const std::string N)

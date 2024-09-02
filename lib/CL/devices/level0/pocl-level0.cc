@@ -983,37 +983,6 @@ static int pocl_level0_setup_spirv_metadata(cl_device_id Device,
   return 1;
 }
 
-// ********************* TODO delete & replace with pocl_driver_setup_metadata ?
-/*
-static int pocl_level0_setup_builtin_metadata(cl_device_id ClDev,
-                                            cl_program Program,
-                                            unsigned ProgramDeviceI) {
-#ifdef ENABLE_NPU
-  Level0Device *Device = (Level0Device *)ClDev->data;
-  assert(Program->data[ProgramDeviceI] != nullptr);
-  Level0BuiltinProgram *L0Program = (Level0BuiltinProgram *)Program->data[ProgramDeviceI];
-
-  Program->num_kernels = Program->num_builtin_kernels;
-  if (Program->num_kernels) {
-    assert(Program->kernel_meta == nullptr);
-    Program->kernel_meta = (pocl_kernel_metadata_t *)calloc(
-        Program->num_kernels, sizeof(pocl_kernel_metadata_t));
-
-    for (size_t i = 0; i < Program->num_kernels; ++i) {
-      POCL_MSG_WARN("L0Program->setupBuiltinKernelMetadata  | %s \n", Program->builtin_kernel_names[i]);
-      bool Res = L0Program->setupBuiltinKernelMetadata(Program->builtin_kernel_names[i],
-                                                       &Program->kernel_meta[i]);
-      assert(Res);
-      Program->kernel_meta[i].data =
-          (void**)calloc(Program->num_devices, sizeof(void*));
-    }
-  }
-  return 1;
-#else
-  return 0;
-#endif
-}
-*/
 
 #ifdef ENABLE_NPU
 
@@ -1115,7 +1084,6 @@ int pocl_level0_supports_dbk (cl_device_id device,
 int pocl_level0_setup_metadata(cl_device_id Dev, cl_program Program,
                                unsigned ProgramDeviceI) {
   if (Program->num_builtin_kernels) {
-//    return pocl_level0_setup_builtin_metadata(Dev, Program, ProgramDeviceI);
     return pocl_driver_setup_metadata(Dev, Program, ProgramDeviceI);
   }
   // using the LLVM::Module as source for metadata gets more reliable info
