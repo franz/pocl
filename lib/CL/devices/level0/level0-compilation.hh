@@ -443,8 +443,6 @@ public:
   ///
   virtual bool addFinishedBuild(Level0BuildBaseUPtr Build) override;
 
-  bool setupBuiltinKernelMetadata(const char* Name, void *MetaPtr);
-
 
 private:
   std::vector<std::string> KernelNames;
@@ -584,7 +582,6 @@ struct Level0BuiltinKernelBuildResult {
     }
   }
 
-  bool setupBuiltinKernelMetadata(const char* Name, void *MetaPtr);
 };
 
 typedef bool (*instantiateModelTemplate_fn)(const void* KernelAttrs,
@@ -629,8 +626,6 @@ public:
                     ze_command_list_handle_t ListH);
 
   ze_graph_handle_t getGraphHandle(std::string KernelName);
-
-  bool setupBuiltinKernelMetadata(const char* Name, void *MetaPtr);
 
 private:
   /// loads stored model from filesystem and puts it into out,
