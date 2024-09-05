@@ -16,3 +16,7 @@ bool instantiateTemplateMATMUL(const void* KernelAttrs,
 bool instantiateTemplateGEMM(const void* KernelAttrs,
                              std::string &ModelXMLInstance,
                              std::string &BuildFlagsInstance);
+
+bool instantiateTemplateARITHMETIC(const void* KernelAttrs,
+                                   std::string &ModelXMLInstance,
+                                   std::string &BuildFlagsInstance);

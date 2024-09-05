@@ -7,11 +7,10 @@
 
 #include "npu_dbk.h"
 
-#ifndef NPU_GEMM_H
-#define NPU_GEMM_H
+#ifndef NPU_ARITHM_H
+#define NPU_ARITHM_H
 
-
-const char *GEMM_XML_Template = R"(
+const char *ARITHM_XML_Template = R"(
 <?xml version="1.0"?>
 <net name="TensorFlow_Frontend_IR" version="11">
   <layers>
@@ -33,7 +32,7 @@ const char *GEMM_XML_Template = R"(
         </port>
       </output>
     </layer>
-    <layer id="2" name="model/dot/MatMul" type="MatMul" version="opset1">
+    <layer id="2" name="arithm" type="MatMul" version="opset1">
       <data transpose_a="TRANSPOSE_A" transpose_b="TRANSPOSE_B" />
       <input>
         <port id="0" precision="INPUT_PREC">
@@ -52,7 +51,7 @@ const char *GEMM_XML_Template = R"(
         </port>
       </output>
     </layer>
-    <layer id="3" name="dot" type="Result" version="opset1">
+    <layer id="3" name="res" type="Result" version="opset1">
       <input>
         <port id="0" precision="OUTPUT_PREC">
           <dim>SHAPE_M</dim>
@@ -75,20 +74,19 @@ const char *GEMM_XML_Template = R"(
 </net>
 )";
 
-const char *GEMM_Flags_Template = R"RAW(--inputs_precisions="x1:INPUT_PREC x2:INPUT_PREC" --inputs_layouts="x1:INPUT_LAYOUT x2:INPUT_LAYOUT" --outputs_precisions="model/dot/MatMul:OUTPUT_PREC" --outputs_layouts="model/dot/MatMul:OUTPUT_LAYOUT" --config   NPU_PLATFORM="3720" PERFORMANCE_HINT="LATENCY")RAW";
+const char *ARITHM_Flags_Template = R"RAW(--inputs_precisions="x1:INPUT_PREC x2:INPUT_PREC" --inputs_layouts="x1:INPUT_LAYOUT x2:INPUT_LAYOUT" --outputs_precisions="arithm:OUTPUT_PREC" --outputs_layouts="arithm:OUTPUT_LAYOUT" --config   NPU_PLATFORM="3720" PERFORMANCE_HINT="LATENCY")RAW";
 
-bool instantiateTemplateGEMM(const void* KernelAttrs,
-                             std::string &ModelXMLInstance,
-                             std::string &BuildFlagsInstance) {
-  ModelXMLInstance = GEMM_XML_Template;
-  BuildFlagsInstance = GEMM_Flags_Template;
+
+bool instantiateTemplateARITHMETIC(const void* KernelAttrs,
+                                   std::string &ModelXMLInstance,
+                                   std::string &BuildFlagsInstance) {
+  ModelXMLInstance = ARITHM_XML_Template;
+  BuildFlagsInstance = ARITHM_Flags_Template;
   ReplaceMapT ReplaceMap;
   cl_tensor_layout_ml *L = nullptr;
 
-  // TODO alpha, beta
-
-  const cl_dbk_attributes_khr_gemm *Attrs
-    = (const cl_dbk_attributes_khr_gemm *)KernelAttrs;
+  const cl_dbk_attributes_khr_arithm *Attrs
+    = (const cl_dbk_attributes_khr_arithm *)KernelAttrs;
   ReplaceMap["SHAPE_M"] = std::to_string(Attrs->a.shape[0]);
   ReplaceMap["SHAPE_K"] = std::to_string(Attrs->a.shape[1]);
   assert(Attrs->a.shape[1] == Attrs->b.shape[0]);
@@ -100,7 +98,7 @@ bool instantiateTemplateGEMM(const void* KernelAttrs,
   ReplaceMap["INPUT_PREC"] = dtype2precision(Attrs->a.dtype);
   ReplaceMap["OUTPUT_PREC"] = dtype2precision(Attrs->c_out.dtype);
   ReplaceMap["INPUT_ELEM_TYPE"] = dtype2elemtype(Attrs->a.dtype);
-  ReplaceMap["OUTPUT_ELEM_TYPE"] = dtype2elemtype(Attrs->c_out.dtype);
+  ReplaceMap["INPUT_ELEM_TYPE"] = dtype2elemtype(Attrs->c_out.dtype);
 
   assert(Attrs->a.layout_type == CL_TENSOR_LAYOUT_ML);
   L = (cl_tensor_layout_ml *)Attrs->a.layout;
@@ -121,4 +119,4 @@ bool instantiateTemplateGEMM(const void* KernelAttrs,
 }
 
 
-#endif // NPU_GEMM_H
+#endif // NPU_ARITHM_H
