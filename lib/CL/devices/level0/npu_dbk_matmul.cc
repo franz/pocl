@@ -97,7 +97,7 @@ bool instantiateTemplateMATMUL(const void *KernelAttrs,
   ReplaceMap["INPUT_PREC"] = dtype2precision(Attrs->a.dtype);
   ReplaceMap["OUTPUT_PREC"] = dtype2precision(Attrs->c.dtype);
   ReplaceMap["INPUT_ELEM_TYPE"] = dtype2elemtype(Attrs->a.dtype);
-  ReplaceMap["INPUT_ELEM_TYPE"] = dtype2elemtype(Attrs->c.dtype);
+  ReplaceMap["OUTPUT_ELEM_TYPE"] = dtype2elemtype(Attrs->c.dtype);
 
   assert(Attrs->a.layout_type == CL_TENSOR_LAYOUT_ML_EXP);
   assert(Attrs->b.layout_type == CL_TENSOR_LAYOUT_ML_EXP);

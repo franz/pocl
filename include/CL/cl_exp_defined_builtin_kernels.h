@@ -72,6 +72,7 @@ typedef union
 /* list of fixed predefined builtin kernel IDs.
  * These should be allocated by the OpenCL extension process
  * TODO convert enum to defines ? */
+
 typedef enum
 {
   /* CD = custom device, BI = built-in */
@@ -127,6 +128,59 @@ typedef enum
   POCL_CDBI_LAST,
   POCL_CDBI_JIT_COMPILER = 0xFFFF
 } cl_dbk_id_exp; /* NOTE: the spec (v0.3.1) has an error (_exp is missing). */
+
+typedef enum
+{
+  POCL_ARITHM_ADD,
+  POCL_ARITHM_SUB,
+  POCL_ARITHM_MUL,
+  POCL_ARITHM_DIV,
+  POCL_ARITHM_MAX,
+  POCL_ARITHM_MIN,
+  POCL_ARITHM_MOD,
+  POCL_ARITHM_AND,
+  POCL_ARITHM_XOR,
+  POCL_ARITHM_OR,
+  POCL_ARITHM_POW,
+} Arithm_2i1o_t;
+
+typedef enum
+{
+  POCL_ARITHM_NOT,
+  POCL_ARITHM_NEG,
+  POCL_ARITHM_ASIN,
+  POCL_ARITHM_ACOS,
+  POCL_ARITHM_ATAN,
+  POCL_ARITHM_ASINH,
+  POCL_ARITHM_ACOSH,
+  POCL_ARITHM_ATANH,
+  POCL_ARITHM_SIN,
+  POCL_ARITHM_COS,
+  POCL_ARITHM_TAN,
+  POCL_ARITHM_SINH,
+  POCL_ARITHM_COSH,
+  POCL_ARITHM_TANH,
+
+  POCL_ARITHM_ERF,
+  POCL_ARITHM_EXP,
+  POCL_ARITHM_FLOOR,
+  POCL_ARITHM_LOG,
+
+  POCL_ARITHM_SQRT,
+  POCL_ARITHM_CEIL,
+  POCL_ARITHM_ROUND,
+
+} Arithm_1i1o_t;
+
+typedef enum
+{
+  POCL_ACTIV_SIGMOID,
+  POCL_ACTIV_RELU,
+  POCL_ACTIV_GELU,
+  POCL_ACTIV_SOFTMAX,
+  POCL_ACTIV_SOFTPLUS,
+} Activ_1i1o_t;
+
 
 /* for storing DBK property numbers and actual values */
 typedef cl_properties cl_dbk_properties_exp;
@@ -342,5 +396,13 @@ typedef struct
   /* The number of input bounding boxes. */
   size_t num_boxes;
 } cl_dbk_attributes_nms_box_exp;
+
+typedef struct _cl_dbk_attributes_khr_arithm_2i1o
+{
+  cl_tensor_desc a, b, c;
+
+  /* 0-terminated array of DBK properties */
+  cl_dbk_properties kernel_props[CL_MAX_DBK_PROPERTIES];
+} cl_dbk_attributes_khr_arithm;
 
 #endif /* OPENCL_EXP_DEFINED_BUILTIN_KERNELS */
