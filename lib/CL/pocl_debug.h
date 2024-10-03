@@ -52,6 +52,9 @@
 #ifndef PRIuS
 # define PRIuS "zu"
 #endif
+#ifndef PRId64
+# define PRId64 PRIu64
+#endif
 
 #if defined(__ANDROID__)
 #include <android/log.h>
