@@ -46,6 +46,10 @@ set(POCL_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+#set(CMAKE_C_STANDARD 11)
+#set(CMAKE_C_STANDARD_REQUIRED ON)
+#set(CMAKE_C_EXTENSIONS OFF)
+
 # if variable FEATURE_X isn't defined, sets it to DEFAULT_FEATURE_X;
 # also, if DEFAULT_FEATURE_X is 0, prevents FEATURE_X being 1
 # since it takes DEFAULT_FEATURE_X=0 to mean "FEATURE_X is unavailable"
@@ -444,12 +448,11 @@ endif()
 
 find_package(PkgConfig MODULE)
 
+set(DEFAULT_ENABLE_HWLOC OFF CACHE INTERNAL "default hwloc")
 if(PKG_CONFIG_FOUND)
   pkg_check_modules(HWLOC IMPORTED_TARGET hwloc>=1.0)
 
-  if(NOT HWLOC_FOUND)
-    set(DEFAULT_ENABLE_HWLOC OFF CACHE INTERNAL "default hwloc")
-  else()
+  if(HWLOC_FOUND)
     set(DEFAULT_ENABLE_HWLOC ON CACHE INTERNAL "default hwloc")
   endif()
 endif()
