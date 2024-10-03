@@ -343,7 +343,7 @@ pocl_mk_tempdir (char *output, const char *prefix)
  * output_path */
 int
 pocl_write_tempfile (char *output_path, const char *prefix, const char *suffix,
-                     const char *content, unsigned long count, int *ret_fd)
+                     const char *content, unsigned long count)
 {
   assert (output_path);
   assert (prefix);
@@ -387,11 +387,7 @@ pocl_write_tempfile (char *output_path, const char *prefix, const char *suffix,
     return errno;
 #endif
 
-  err = 0;
-  if (ret_fd)
-    *ret_fd = fd;
-  else
-    err = close (fd);
+  err = close (fd);
 
-  return err ? errno : 0;
+  return err ? -2 : 0;
 }

@@ -56,6 +56,13 @@ pocl_touch_file(const char* f_path)
   return exists ? 0 : (EC ? -1 : -2);
 }
 
+int
+pocl_rename(const char *oldpath, const char *newpath) {
+  std::error_code EC;
+  std::filesystem::rename(path(oldpath), path(newpath), EC);
+  return EC ? -1 : 0;
+}
+
 /****************************************************************************/
 
 #define CHUNK_SIZE (2 * 1024 * 1024)
@@ -111,7 +118,8 @@ ERROR:
 
 
 
-/* Atomic write - with rename() */
+/* Atomic write - with rename()
+ * TODO there is no portable fsync/fdatasync in the C++ lib */
 int
 pocl_write_file (const char *f_path, const char *content, uint64_t count,
                  int append)
@@ -159,12 +167,7 @@ pocl_write_file (const char *f_path, const char *content, uint64_t count,
 
 /****************************************************************************/
 
-int pocl_rename(const char *oldpath, const char *newpath) {
-  std::error_code EC;
-  std::filesystem::rename(path(oldpath), path(newpath), EC);
-  return EC ? -1 : 0;
-}
-
+/* TODO there is no portable mktemp in the C++ lib */
 int
 pocl_mk_tempname (char *output, const char *prefix, const char *suffix,
                   int *ret_fd)
@@ -243,7 +246,7 @@ pocl_mk_tempdir (char *output, const char *prefix)
  * output_path */
 int
 pocl_write_tempfile (char *output_path, const char *prefix, const char *suffix,
-                     const char *content, unsigned long count, int *ret_fd)
+                     const char *content, unsigned long count)
 {
   assert (output_path);
   assert (prefix);
@@ -287,11 +290,7 @@ pocl_write_tempfile (char *output_path, const char *prefix, const char *suffix,
     return errno;
 #endif
 
-  err = 0;
-  if (ret_fd)
-    *ret_fd = fd;
-  else
-    err = close (fd);
+  err = close (fd);
 
-  return err ? errno : 0;
+  return err ? -2 : 0;
 }

@@ -206,8 +206,8 @@ if(ENABLE_PLATFORM_CPP)
   list(APPEND POCL_LIB_SOURCES
   "pocl_timing.cc" "pocl_timing.h"
   "pocl_threads.cc" "pocl_threads.hh"
-  "pocl_file_util.cc" "pocl_file_util.h"
-  )
+  "pocl_file_util.h")
+  list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc")
 else()
   list(APPEND POCL_LIB_SOURCES
   "pocl_timing.c" "pocl_timing.h"
@@ -253,7 +253,7 @@ if (ENABLE_LLVM)
   unset(CMAKE_CXX_STANDARD)
   unset(CMAKE_CXX_STANDARD_REQUIRED)
 
-  set(LLVM_API_SOURCES "pocl_llvm_build.cc" "pocl_llvm_metadata.cc" "pocl_llvm_utils.cc" "pocl_llvm_wg.cc")
+  set(LLVM_API_SOURCES "pocl_llvm_build.cc" "pocl_llvm_metadata.cc" "pocl_llvm_utils.cc" "pocl_llvm_wg.cc" ${EXTRA_LLVM_SOURCES})
   set_source_files_properties(${LLVM_API_SOURCES} PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} -I\"${CMAKE_CURRENT_SOURCE_DIR}/../llvmopencl\"")
 
   add_library("lib_cl_llvm" OBJECT ${LLVM_API_SOURCES})

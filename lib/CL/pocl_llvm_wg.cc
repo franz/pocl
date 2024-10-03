@@ -1602,7 +1602,7 @@ int pocl_llvm_codegen(cl_device_id Device, cl_program program, void *Modp,
 
   std::string AsmStr = SOS.str().str();
   pocl_write_tempfile(AsmFileName, "/tmp/pocl-asm", ".s", AsmStr.c_str(),
-                      AsmStr.size(), nullptr);
+                      AsmStr.size());
   pocl_mk_tempname(ObjFileName, "/tmp/pocl-obj", ".o", nullptr);
 
   const char *Args[] = {pocl_get_path("CLANG", CLANG),
