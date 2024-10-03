@@ -23,7 +23,6 @@
 #
 #=============================================================================
 
-
 include_directories(AFTER "devices" ".")
 
 add_subdirectory("devices")
@@ -140,27 +139,11 @@ set(POCL_LIB_SOURCES  "clCreateContextFromType.c"
                    "clSetProgramSpecializationConstant.c"
                    "clCloneKernel.c"
                    "clEnqueueSVMMigrateMem.c"
-                   "pocl_builtin_kernels.c" "pocl_builtin_kernels.h"
-                   "dbk/pocl_dbk_khr_jpeg_shared.c" "dbk/pocl_dbk_khr_jpeg_shared.h"
-                   "pocl_cl.h" "pocl_util.h" "pocl_util.c"
-                   "pocl_image_util.c" "pocl_image_util.h"
-                   "pocl_img_buf_cpy.c"
-                   "pocl_fill_memobj.c"
-                   "pocl_ndrange_kernel.c"
-                   "pocl_icd.h" "pocl_llvm.h"
-                   "pocl_tracing.h" "pocl_tracing.c"
-                   "pocl_runtime_config.c" "pocl_runtime_config.h"
-                   "pocl_mem_management.c"  "pocl_mem_management.h"
-                   "pocl_hash.c" "pocl_file_util.c"
-                   "pocl_debug.h" "pocl_debug.c" "pocl_timing.c"
-                   "pocl_timing.h" "pocl_threads.h" "pocl_threads.c"
-                   "pocl_tensor_util.h" "pocl_tensor_util.c"
                    "clSVMAlloc.c" "clSVMFree.c" "clEnqueueSVMFree.c"
                    "clEnqueueSVMMap.c" "clEnqueueSVMUnmap.c"
                    "clEnqueueSVMMemcpy.c" "clEnqueueSVMMemFill.c"
                    "clSetKernelArgSVMPointer.c" "clSetKernelExecInfo.c"
                    "clSetDefaultDeviceCommandQueue.c"
-                   "pocl_binary.c" "pocl_opengl.c" "pocl_cq_profiling.c"
                    "clCommandBarrierWithWaitListKHR.c"
                    "clCommandCopyBufferKHR.c"
                    "clCommandCopyBufferRectKHR.c"
@@ -200,7 +183,38 @@ set(POCL_LIB_SOURCES  "clCreateContextFromType.c"
                    "clEnqueueSVMMemcpyRectPOCL.c"
                    "clEnqueueSVMMemfillRectPOCL.c"
                    "clSetKernelArgDevicePointer.c"
+
+                   "pocl_builtin_kernels.c" "pocl_builtin_kernels.h"
+                   "pocl_cl.h" "pocl_icd.h" "pocl_llvm.h"
+                   "pocl_util.h" "pocl_util.c"
+                   "pocl_image_util.c" "pocl_image_util.h"
+                   "pocl_img_buf_cpy.c"
+                   "pocl_fill_memobj.c"
+                   "pocl_ndrange_kernel.c"
+                   "pocl_tracing.h" "pocl_tracing.c"
+                   "pocl_runtime_config.c" "pocl_runtime_config.h"
+                   "pocl_mem_management.c"  "pocl_mem_management.h"
+                   "pocl_hash.c"
+                   "pocl_debug.h" "pocl_debug.c"
+                   "pocl_tensor_util.h" "pocl_tensor_util.c"
+                   "pocl_binary.c" "pocl_opengl.c" "pocl_cq_profiling.c"
+
+                   "dbk/pocl_dbk_khr_jpeg_shared.c" "dbk/pocl_dbk_khr_jpeg_shared.h"
 )
+
+if(ENABLE_PLATFORM_CPP)
+  list(APPEND POCL_LIB_SOURCES
+  "pocl_timing.cc" "pocl_timing.h"
+  "pocl_threads.cc" "pocl_threads.hh"
+  "pocl_file_util.cc" "pocl_file_util.h"
+  )
+else()
+  list(APPEND POCL_LIB_SOURCES
+  "pocl_timing.c" "pocl_timing.h"
+  "pocl_threads.c" "pocl_threads.h"
+  "pocl_file_util.c" "pocl_file_util.h"
+  )
+endif()
 
 if(ANDROID)
   list(APPEND POCL_LIB_SOURCES "pocl_mkstemp.c")

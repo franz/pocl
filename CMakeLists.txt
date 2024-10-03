@@ -310,7 +310,9 @@ option(ENABLE_EXAMPLES "Build examples. Defaults to ON" ON)
 
 option(ENABLE_RDMA "Enable usage of RDMA libraries for memory allocations. Requires libRDMAcm and libverbs" OFF)
 
-OPTION(RENAME_POCL "rename PoCL's ocl functions to PO<ocl_function>. Allows an user to call both PoCL and another ocl application" OFF)
+option(RENAME_POCL "rename PoCL's ocl functions to PO<ocl_function>. Allows an user to call both PoCL and another ocl application" OFF)
+
+option(ENABLE_PLATFORM_CPP "enable platform support using C++ standard library" ON)
 
 ##########################################################
 

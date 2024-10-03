@@ -49,18 +49,22 @@
 
 #include "pocl_timing.h"
 
+
+uint64_t pocl_gettimer_resolution() {
 #ifdef HAVE_CLOCK_GETTIME
 // clock_gettime is (at best) nanosec res
-const unsigned pocl_timer_resolution = 1;
+  return 1;
 #else
 #  ifndef _MSC_VER
 // gettimeofday() has (at best) microsec res
-const unsigned pocl_timer_resolution = 1000;
+ return 1000;
 #  else
 // the resolution of windows clock is "it depends"...
-const unsigned pocl_timer_resolution = 1000;
+ return 10000;
 #  endif
 #endif
+}
+
 
 
 uint64_t pocl_gettimemono_ns() {

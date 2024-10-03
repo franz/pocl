@@ -799,7 +799,7 @@ pocl_remote_reader_pthread (void *aa)
       POCL_UNLOCK (inflight->mutex);
       finish_running_cmd (running_cmd);
     }
-  POCL_EXIT_THREAD (NULL);
+  return NULL;
 }
 
 #ifdef ENABLE_RDMA
@@ -895,7 +895,7 @@ pocl_remote_rdma_reader_pthread (void *aa)
       POCL_LOCK (this->mutex);
     }
 
-  POCL_EXIT_THREAD (NULL);
+  return NULL;
 }
 
 static void *
@@ -1045,7 +1045,7 @@ pocl_remote_rdma_writer_pthread (void *aa)
   POCL_UNLOCK (this->mutex);
   rdma_unregister_mem_region (request_mr);
 
-  POCL_EXIT_THREAD (NULL);
+  return NULL;
 }
 #endif
 
@@ -1230,7 +1230,7 @@ pocl_remote_writer_pthread (void *aa)
 
   POCL_UNLOCK (this->mutex);
 
-  POCL_EXIT_THREAD (NULL);
+  return NULL;
 }
 
 static void

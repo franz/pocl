@@ -38,11 +38,13 @@
 extern "C" {
 #endif
 
-extern const unsigned pocl_timer_resolution;
-
 POCL_EXPORT
 uint64_t pocl_gettimemono_ns();
 
+POCL_EXPORT
+uint64_t pocl_gettimer_resolution();
+
+/* only used in pocl_debug.h */
 int pocl_gettimereal(int *year, int *mon, int *day, int *hour, int *min, int *sec, int* nanosec);
 
 #ifdef __cplusplus

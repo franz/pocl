@@ -26,9 +26,7 @@
  *
  * PoCL core should use only the abstractions in this file for threading and
  * synchronization. Thus, this file acts as a portability layer for various
- * threading libraries needed in the runtime. The 'pthread' CPU device still
- * calls pthread directly as it's a CPU device driver optimized for using that
- * API.
+ * threading libraries needed in the runtime.
  */
 
 #ifndef POCL_THREADS_H
@@ -36,24 +34,20 @@
 
 #include "pocl_export.h"
 
-/* To get adaptive mutex type */
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
+#include <cstdint>
 
-#include <pthread.h>
-
-typedef pthread_mutex_t pocl_lock_t;
-typedef pthread_cond_t pocl_cond_t;
-typedef pthread_t pocl_thread_t;
-#define POCL_LOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER
-
-#if defined(__GNUC__) || defined(__clang__)
+typedef struct _pocl_lock_t *pocl_lock_t;
+typedef struct _pocl_cond_t *pocl_cond_t;
+typedef struct _pocl_thread_t *pocl_thread_t;
 
 /* These return the new value. */
 /* See:
  * https://gcc.gnu.org/onlinedocs/gcc-4.7.4/gcc/_005f_005fatomic-Builtins.html
  */
+// TODO
+
+#if defined(__GNUC__) || defined(__clang__)
+
 #define POCL_ATOMIC_ADD(x, val) __atomic_add_fetch (&x, val, __ATOMIC_SEQ_CST);
 #define POCL_ATOMIC_INC(x) __atomic_add_fetch (&x, 1, __ATOMIC_SEQ_CST)
 #define POCL_ATOMIC_DEC(x) __atomic_sub_fetch (&x, 1, __ATOMIC_SEQ_CST)
@@ -74,20 +68,6 @@ typedef pthread_t pocl_thread_t;
 #error Need atomic_inc() builtin for this compiler
 #endif
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-  /* Generic functionality for handling different types of
-     OpenCL (host) objects. */
-
-  POCL_EXPORT
-  void pocl_abort_on_pthread_error (int status, unsigned line,
-                                    const char *func);
-
-#ifdef __cplusplus
-}
-#endif
 
 /* Some pthread_*() calls may return '0' or a specific non-zero value on
  * success.
@@ -107,49 +87,53 @@ extern "C"
 /* Generic functionality for handling different types of
    OpenCL (host) objects. */
 
-#define POCL_LOCK(__LOCK__) PTHREAD_CHECK (pthread_mutex_lock (&(__LOCK__)))
-#define POCL_UNLOCK(__LOCK__)                                                 \
-  PTHREAD_CHECK (pthread_mutex_unlock (&(__LOCK__)))
-#define POCL_INIT_LOCK(__LOCK__)                                              \
-  PTHREAD_CHECK (pthread_mutex_init (&(__LOCK__), NULL))
-/* We recycle OpenCL objects by not actually freeing them until the
-   very end. Thus, the lock should not be destroyed at the refcount 0. */
-#define POCL_DESTROY_LOCK(__LOCK__)                                           \
-  PTHREAD_CHECK (pthread_mutex_destroy (&(__LOCK__)))
 
-/* If available, use an Adaptive mutex for locking in the pthread driver,
-   otherwise fallback to simple mutexes */
-#define POCL_FAST_LOCK_T pthread_mutex_t
-#define POCL_FAST_LOCK(l) POCL_LOCK (l)
-#define POCL_FAST_UNLOCK(l) POCL_UNLOCK (l)
-
-#ifdef PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
-#define POCL_FAST_INIT(l)                                                     \
-  do                                                                          \
-    {                                                                         \
-      pthread_mutexattr_t attrs;                                              \
-      pthread_mutexattr_init (&attrs);                                        \
-      PTHREAD_CHECK (                                                         \
-          pthread_mutexattr_settype (&attrs, PTHREAD_MUTEX_ADAPTIVE_NP));     \
-      PTHREAD_CHECK (pthread_mutex_init (&l, &attrs));                        \
-      PTHREAD_CHECK (pthread_mutexattr_destroy (&attrs));                     \
-    }                                                                         \
-  while (0)
-#else
-#define POCL_FAST_INIT(l) POCL_INIT_LOCK (l)
+#ifdef __cplusplus
+extern "C"
+{
 #endif
 
-#define POCL_FAST_DESTROY(l) POCL_DESTROY_LOCK (l)
+void pocl_mutex_init(pocl_lock_t *L);
+void pocl_mutex_destroy(pocl_lock_t *L);
+void pocl_mutex_lock(pocl_lock_t L);
+void pocl_mutex_unlock(pocl_lock_t L);
 
-#define POCL_INIT_COND(c) PTHREAD_CHECK (pthread_cond_init (&c, NULL))
-#define POCL_DESTROY_COND(c) PTHREAD_CHECK (pthread_cond_destroy (&c))
-#define POCL_SIGNAL_COND(c) PTHREAD_CHECK (pthread_cond_signal (&c))
-#define POCL_BROADCAST_COND(c) PTHREAD_CHECK (pthread_cond_broadcast (&c))
-#define POCL_WAIT_COND(c, m) PTHREAD_CHECK (pthread_cond_wait (&c, &m))
-#define POCL_TIMEDWAIT_COND(c, m, t)                                          \
-  PTHREAD_CHECK2 (ETIMEDOUT, pthread_cond_timedwait (&c, &m, &t))
+void pocl_cond_init(pocl_cond_t *C);
+void pocl_cond_destroy(pocl_cond_t *C);
+void pocl_cond_signal(pocl_cond_t C);
+void pocl_cond_broadcast(pocl_cond_t C);
+void pocl_cond_wait(pocl_cond_t C, pocl_lock_t L);
+void pocl_cond_timedwait(pocl_cond_t C, pocl_lock_t L, uint64_t Timeout);
 
-#define POCL_CREATE_THREAD(thr, func, arg)                                    \
-  PTHREAD_CHECK (pthread_create (&thr, NULL, func, arg))
-#define POCL_JOIN_THREAD(thr) PTHREAD_CHECK (pthread_join (thr, NULL))
+void pocl_thread_create (pocl_thread_t *T, void* (*F)(void*), void *Arg);
+void pocl_thread_destroy (pocl_thread_t *T);
+void pocl_thread_join (pocl_thread_t T);
+
+#ifdef __cplusplus
+}
+#endif
+
+#define POCL_LOCK(__LOCK__) pocl_mutex_lock (__LOCK__)
+#define POCL_UNLOCK(__LOCK__) pocl_mutex_unlock (__LOCK__)
+#define POCL_INIT_LOCK(__LOCK__) pocl_mutex_init (&__LOCK__)
+#define POCL_DESTROY_LOCK(__LOCK__) pocl_mutex_destroy (&__LOCK__)
+
+#define POCL_FAST_LOCK_T POCL_LOCK_T
+#define POCL_FAST_LOCK(l) POCL_LOCK(l)
+#define POCL_FAST_UNLOCK(l) POCL_UNLOCK(l)
+#define POCL_FAST_INIT(l) POCL_INIT_LOCK(l)
+#define POCL_FAST_DESTROY(l) POCL_DESTROY_LOCK(l)
+
+#define POCL_INIT_COND(c) pocl_cond_init(&c)
+#define POCL_DESTROY_COND(c) pocl_cond_destroy(&c)
+#define POCL_SIGNAL_COND(c) pocl_cond_signal(c)
+#define POCL_BROADCAST_COND(c) pocl_cond_broadcast(c)
+#define POCL_WAIT_COND(c, m) pocl_cond_wait(c, m)
+// TODO: should ignore ETIMEDOUT
+#define POCL_TIMEDWAIT_COND(c, m, t) pocl_cond_timedwait(c, m, t)
+
+#define POCL_CREATE_THREAD(thr, func, arg) pocl_thread_create(&thr, func, arg)
+#define POCL_JOIN_THREAD(thr) pocl_thread_join(thr)
+#define POCL_DESTROY_THREAD(thr) pocl_thread_destroy(&thr)
+
 #endif

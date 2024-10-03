@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <ucontext.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "pocl_cache.h"
 #include "pocl_cl.h"
@@ -170,7 +171,7 @@ sigfpe_signal_handler (int signo, siginfo_t *si, void *data)
       /* SIGFPE is delivered to the thread that caused the div-by-zero.
        * check if the thread is on the list of threads we should ignore.
        */
-      pocl_thread_t ID = POCL_THREAD_SELF ();
+      pocl_thread_t ID = pthread_self ();
       int found = 0;
       unsigned max_threads
           = __atomic_load_n (&num_ignored_threads, __ATOMIC_SEQ_CST);

@@ -349,7 +349,7 @@ void *TBBDriverThread(void *Dev) {
   while (1) {
     DoExit = runSingleCommand(SchedData);
     if (DoExit) {
-      POCL_EXIT_THREAD(NULL);
+      return NULL;
     }
   }
 }
