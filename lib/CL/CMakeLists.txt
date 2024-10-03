@@ -1,7 +1,7 @@
 #=============================================================================
 #   CMake build system files
 #
-#   Copyright (c) 2014-2018 pocl developers
+#   Copyright (c) 2014-2024 pocl developers
 #
 #   Permission is hereby granted, free of charge, to any person obtaining a copy
 #   of this software and associated documentation files (the "Software"), to deal
@@ -209,10 +209,10 @@ unset(EXTRA_LLVM_SOURCES)
 if(ENABLE_PLATFORM_CPP)
   list(APPEND POCL_LIB_SOURCES
        "pocl_timing.cc" "pocl_threads.cc")
-  list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc")
+  list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc" "pocl_llvm_dynlib.cc" "pocl_llvm_process.cc")
 else()
   list(APPEND POCL_LIB_SOURCES
-       "pocl_timing.c" "pocl_threads.c" "pocl_file_util.c")
+       "pocl_timing.c" "pocl_threads.c" "pocl_file_util.c" "pocl_dynlib.c" "pocl_process.c")
 endif()
 
 if(ANDROID)

@@ -311,14 +311,6 @@ POCL_EXPORT
 const char *
 pocl_command_to_str (cl_command_type cmd);
 
-POCL_EXPORT
-int pocl_run_command (const char **args);
-
-POCL_EXPORT
-int pocl_run_command_capture_output (char *capture_string,
-                                     size_t *captured_bytes,
-                                     const char **args);
-
 uint16_t float_to_half (float value);
 
 float half_to_float (uint16_t value);

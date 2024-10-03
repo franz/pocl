@@ -1,7 +1,7 @@
 #=============================================================================
 #   CMake build system files
 #
-#   Copyright (c) 2014-2023 pocl developers
+#   Copyright (c) 2014-2024 pocl developers
 #
 #   Permission is hereby granted, free of charge, to any person obtaining a copy
 #   of this software and associated documentation files (the "Software"), to deal
@@ -312,7 +312,7 @@ option(ENABLE_RDMA "Enable usage of RDMA libraries for memory allocations. Requi
 
 option(RENAME_POCL "rename PoCL's ocl functions to PO<ocl_function>. Allows an user to call both PoCL and another ocl application" OFF)
 
-option(ENABLE_PLATFORM_CPP "enable platform support using C++ standard library" ON)
+option(ENABLE_PLATFORM_CPP "enable platform support using C++ standard library and LLVM libraries" OFF)
 
 ##########################################################
 
@@ -327,6 +327,17 @@ endif()
 # printf buffer size, in KB
 if(NOT DEFINED PRINTF_BUFFER_SIZE)
   set(PRINTF_BUFFER_SIZE 16384 CACHE STRING "printf buffer size, in KB")
+endif()
+
+if (ENABLE_PLATFORM_CPP)
+  if(ENABLE_LOADABLE_DRIVERS)
+    message(WARNING "LLVM dynlibs implementation doesn't support loadable drivers, disabling.")
+    set(ENABLE_LOADABLE_DRIVERS 0)
+  endif()
+  if(ENABLE_PRINTF_IMMEDIATE_FLUSH)
+    message(WARNING "LLVM dynlibs implementation doesn't support printf() immediate flush, disabling.")
+    set(ENABLE_PRINTF_IMMEDIATE_FLUSH 0)
+  endif()
 endif()
 
 ##################################################################################
@@ -1528,7 +1539,6 @@ if(ENABLE_PROXY_DEVICE)
 
   set(OCL_DRIVERS "${OCL_DRIVERS} proxy")
 endif()
-
 
 ####################################################################
 
