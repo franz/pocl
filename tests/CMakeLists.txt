@@ -39,7 +39,7 @@ if(ENABLE_HOST_CPU_DEVICES)
 endif()
 
 #######################################################################
-if(UNIX AND HAVE_DLFCN_H)
+if((UNIX OR MINGW) AND HAVE_DLFCN_H)
 
 if(ENABLE_ICD)
 add_test(NAME pocl_test_dlopen_libpocl COMMAND test_dlopen)

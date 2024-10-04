@@ -90,7 +90,7 @@ macro(pass_through_cpack_vars)
 endmacro()
 
 # don't allow implicit function declarations
-if(UNIX)
+if(UNIX OR MINGW)
   if((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR
      (CMAKE_C_COMPILER_ID STREQUAL "Clang"))
 
@@ -522,7 +522,7 @@ endif()
 if(NOT HOST_CPU_CACHELINE_SIZE)
 
   set(CL_SIZE 0)
-  if(UNIX OR CMAKE_HOST_SYSTEM_NAME MATCHES "Linux|Darwin")
+  if(UNIX OR MINGW OR CMAKE_HOST_SYSTEM_NAME MATCHES "Linux|Darwin")
     find_program(GETCONF "getconf")
     if(GETCONF)
       execute_process(COMMAND "getconf" "LEVEL1_DCACHE_LINESIZE"
@@ -645,7 +645,7 @@ endif()
 
 ######################################################################################
 
-if(UNIX)
+if(UNIX OR MINGW)
   include(CheckCSourceCompiles)
   include(CheckSymbolExists)
 
@@ -773,7 +773,7 @@ int main()
 endfunction(check_64bit_atomics)
 
 # platforms w/o lockfree 64bit atomics need to link with -latomic
-if(UNIX)
+if(UNIX OR MINGW)
     check_64bit_atomics(HAVE_64BIT_ATOMICS_WITHOUT_LIB)
     if(HAVE_64BIT_ATOMICS_WITHOUT_LIB)
         set(HAVE_64BIT_ATOMICS_WITH_LIB FALSE)
@@ -790,7 +790,7 @@ endif()
 
 ######################################################################################
 
-if(UNIX AND ENABLE_LLVM AND HAVE_DLADDR)
+if((UNIX OR MINGW) AND ENABLE_LLVM AND HAVE_DLADDR)
     option(ENABLE_RELOCATION "make libpocl relocatable" ON)
 else()
     message(STATUS "Relocation not available")
@@ -894,7 +894,7 @@ set(KERNEL_C_FLAGS "${DEFAULT_KERNEL_C_FLAGS}${EXTRA_KERNEL_FLAGS}${EXTRA_KERNEL
 
 ######################################################################################
 
-if(UNIX)
+if(UNIX OR MINGW)
   if(APPLE)
     # MacOS ld outputs useless warnings like
     # ld: warning: -macosx_version_min not specificed, assuming 10.7
@@ -916,7 +916,7 @@ endif()
 
 ######################################################################################
 
-if(UNIX)
+if(UNIX OR MINGW)
   if(APPLE)
     # TODO MACOSX_BUNDLE target prop
     set(ICD_LD_FLAGS "-single_module")
@@ -949,7 +949,7 @@ set(HAVE_DLFCN_H OFF CACHE BOOL "dlopen" FORCE)
 if(WIN32 AND (NOT MINGW))
   message(STATUS "Using LoadLibrary/FreeLibrary in Windows, libltdl not needed.")
 
-elseif(UNIX)
+elseif(UNIX OR MINGW)
 
   if (CMAKE_CROSSCOMPILING AND (NOT ENABLE_HOST_CPU_DEVICES) AND (NOT ENABLE_HSA))
     message(STATUS "Cross-compiling without CPU/HSA devices -> skipping LIBDL search")
@@ -2027,11 +2027,9 @@ endif()
 ##########################################################
 
 if(UNIX)
-
   configure_file("${CMAKE_SOURCE_DIR}/pocl.pc.in.cmake" "${CMAKE_BINARY_DIR}/pocl.pc" @ONLY)
   install(FILES "${CMAKE_BINARY_DIR}/pocl.pc"
           DESTINATION "${POCL_INSTALL_PKGCONFIG_DIR}" COMPONENT "dev")
-
 endif()
 
 # For now always use a mirror copy of ocml, but allow overriding
