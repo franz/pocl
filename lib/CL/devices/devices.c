@@ -250,7 +250,7 @@ static unsigned device_count[POCL_NUM_DEVICE_TYPES];
 // after calling drivers uninit, we may have to re-init the devices.
 static unsigned devices_active = 0;
 
-static pocl_lock_t pocl_init_lock = POCL_LOCK_INITIALIZER;
+extern pocl_lock_t pocl_init_lock;
 
 #ifdef ENABLE_LOADABLE_DRIVERS
 
@@ -402,7 +402,6 @@ pocl_get_device_type_count(cl_device_type device_type)
   return count;
 }
 
-
 cl_int
 pocl_uninit_devices ()
 {
@@ -452,6 +451,17 @@ pocl_uninit_devices ()
     }
 
 FINISH:
+#if defined(__linux__) && !defined(__ANDROID__)
+
+#ifdef ENABLE_HOST_CPU_DEVICES
+  if (pocl_get_bool_option ("POCL_SIGFPE_HANDLER", 1))
+    {
+      pocl_destroy_sigfpe_handler ();
+    }
+#endif
+
+#endif
+
   devices_active = 0;
   POCL_UNLOCK (pocl_init_lock);
 
@@ -556,7 +566,6 @@ pocl_init_devices ()
 #ifdef POCL_DEBUG_MESSAGES
   const char* debug = pocl_get_string_option ("POCL_DEBUG", "0");
   pocl_debug_messages_setup (debug);
-  pocl_stderr_is_a_tty = isatty(fileno(stderr));
 #endif
 
   POCL_GOTO_ERROR_ON ((pocl_cache_init_topdir ()), CL_DEVICE_NOT_FOUND,

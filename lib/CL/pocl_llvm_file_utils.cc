@@ -143,6 +143,7 @@ pocl_exists(const char* path) {
 
 int pocl_touch_file(const char* path) {
   /*llvm::fs:: TODO */
+  return 0;
 }
 
 int pocl_rename(const char *oldpath, const char *newpath) {
@@ -217,25 +218,31 @@ pocl_read_file(const char* path, char** content, uint64_t *filesize) {
     ssize_t total_size = 0;
     ssize_t actually_read = 0;
     char *ptr = (char *)malloc(CHUNK_SIZE + 1);
-    if (ptr == nullptr)
+    if (ptr == nullptr) {
+      POCL_MSG_ERR ("failed to malloc mem for reading %s\n", path);
       return -1;
+    }
 
     ec = fs::openFileForRead(p, fd);
-    if (ec)
+    if (ec) {
+      POCL_MSG_ERR ("failed to open file %s\n", path);
       goto ERROR;
+    }
     fh = fs::convertFDToNativeFile(fd);
 
     do {
       char *reallocated = (char *)realloc(ptr, (total_size + CHUNK_SIZE + 1));
-      if (reallocated == NULL)
+      if (reallocated == nullptr) {
+        POCL_MSG_ERR ("failed to realloc mem for reading %s\n", path);
         goto ERROR;
+      }
       ptr = reallocated;
 
       llvm::MutableArrayRef<char> Buf{ptr+total_size, CHUNK_SIZE};
       auto Res = fs::readNativeFile(fh, Buf);
       if (!Res) {
         auto E = Res.takeError();
-        std::cerr << "failed read file \n";
+        POCL_MSG_ERR ("failed to read file %s\n", path);
         goto ERROR;
       }
       actually_read = Res.get();
@@ -244,12 +251,11 @@ pocl_read_file(const char* path, char** content, uint64_t *filesize) {
 
     } while (actually_read > 0);
 
-    if (actually_read < 0)
-      goto ERROR;
-
     ec = fs::closeFile(fh);
-    if (ec)
+    if (ec) {
+      POCL_MSG_ERR ("failed to close file %s\n", path);
       goto ERROR;
+    }
 
   /* add an extra NULL character for strings */
     ptr[total_size] = 0;
@@ -280,12 +286,18 @@ static int pocl_write_file2(const char *path, // final path
 
   if (append) {
     ec = fs::openFileForWrite(FinalPath, fd, fs::CD_OpenAlways, fs::OF_Append);
-    if (ec) return -1;
+    if (ec) {
+      POCL_MSG_ERR ("failed to open file WR 1 %s\n", path);
+      return -1;
+    }
   } else {
     ec = fs::createUniqueFile(FinalPath + random_pattern + TmpSuffix,
         fd, TmpPath, fs::OpenFlags::OF_None,
         fs::perms::owner_read | fs::perms::owner_write);
-    if (ec) return -1;
+    if (ec) {
+      POCL_MSG_ERR ("failed to open file WR 2 %s\n", path);
+      return -1;
+    }
   }
   fh = fs::convertFDToNativeFile(fd);
 
@@ -317,13 +329,16 @@ static int pocl_write_file2(const char *path, // final path
     FlushFileBuffers(fh);
 #endif
 
-    if (fs::closeFile(fh))
+    if (fs::closeFile(fh)) {
+      POCL_MSG_ERR ("failed to close file WR %s\n", path);
       return -2;
+    }
 
     if (append || dont_rename)
       return 0;
     else {
       llvm::Twine TmpP(TmpPath);
+      POCL_MSG_ERR ("renaming file %s to %s\n", TmpP.str().c_str(), path);
       return pocl_rename2(TmpP, FinalPath);
     }
 }
@@ -343,24 +358,28 @@ int pocl_write_tempfile(char *output_path, const char *prefix,
                         const char *suffix, const char *content,
                         uint64_t count) {
   llvm::SmallVector<char, 512> TmpPath;
-  return pocl_write_file2(prefix, content, count, nullptr,
-                          false, true,
-                          TmpPath, suffix);
+  int err = pocl_write_file2(prefix, content, count, nullptr,
+                             false, true,
+                             TmpPath, suffix);
+  if (err)
+    return err;
   if (TmpPath.size() >= POCL_MAX_PATHNAME_LENGTH) {
     POCL_MSG_ERR ("Path name too long \n");
     return -1;
   }
-  strncpy(output_path, TmpPath.data(), TmpPath.size());
+  memcpy(output_path, TmpPath.data(), TmpPath.size());
   output_path[TmpPath.size()] = 0;
   return 0;
 }
 
 /* Atomic write of IR - with rename() */
+#if 0
 int pocl_write_module(void *module, const char* path) {
   llvm::SmallVector<char, 512> TmpPath;
   return pocl_write_file2(path, nullptr, 0, (llvm::Module *)module,
                           false, false,
                           TmpPath, ".temp.bc");
 }
+#endif
 
 /****************************************************************************/

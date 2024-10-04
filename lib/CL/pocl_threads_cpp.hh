@@ -29,22 +29,15 @@
  * threading libraries needed in the runtime.
  */
 
-#ifndef POCL_THREADS_H
-#define POCL_THREADS_H
+#ifndef POCL_THREADS_CPP_H
+#define POCL_THREADS_CPP_H
 
 #include "pocl_export.h"
 
-#include <cstdint>
-
+typedef struct _pocl_barrier_t *pocl_barrier_t;
 typedef struct _pocl_lock_t *pocl_lock_t;
 typedef struct _pocl_cond_t *pocl_cond_t;
 typedef struct _pocl_thread_t *pocl_thread_t;
-
-/* These return the new value. */
-/* See:
- * https://gcc.gnu.org/onlinedocs/gcc-4.7.4/gcc/_005f_005fatomic-Builtins.html
- */
-// TODO
 
 #if defined(__GNUC__) || defined(__clang__)
 
@@ -69,45 +62,46 @@ typedef struct _pocl_thread_t *pocl_thread_t;
 #endif
 
 
-/* Some pthread_*() calls may return '0' or a specific non-zero value on
- * success.
- */
-#define PTHREAD_CHECK2(_status_ok, _code)                                     \
-  do                                                                          \
-    {                                                                         \
-      int _pthread_status = (_code);                                          \
-      if (_pthread_status != 0 && _pthread_status != (_status_ok))            \
-        pocl_abort_on_pthread_error (_pthread_status, __LINE__,               \
-                                     __FUNCTION__);                           \
-    }                                                                         \
-  while (0)
-
-#define PTHREAD_CHECK(code) PTHREAD_CHECK2 (0, code)
-
-/* Generic functionality for handling different types of
-   OpenCL (host) objects. */
-
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
+POCL_EXPORT
 void pocl_mutex_init(pocl_lock_t *L);
+POCL_EXPORT
 void pocl_mutex_destroy(pocl_lock_t *L);
+POCL_EXPORT
 void pocl_mutex_lock(pocl_lock_t L);
+POCL_EXPORT
 void pocl_mutex_unlock(pocl_lock_t L);
 
+POCL_EXPORT
 void pocl_cond_init(pocl_cond_t *C);
+POCL_EXPORT
 void pocl_cond_destroy(pocl_cond_t *C);
+POCL_EXPORT
 void pocl_cond_signal(pocl_cond_t C);
+POCL_EXPORT
 void pocl_cond_broadcast(pocl_cond_t C);
+POCL_EXPORT
 void pocl_cond_wait(pocl_cond_t C, pocl_lock_t L);
-void pocl_cond_timedwait(pocl_cond_t C, pocl_lock_t L, uint64_t Timeout);
+POCL_EXPORT
+void pocl_cond_timedwait(pocl_cond_t C, pocl_lock_t L, unsigned long msec);
 
+POCL_EXPORT
 void pocl_thread_create (pocl_thread_t *T, void* (*F)(void*), void *Arg);
+POCL_EXPORT
 void pocl_thread_destroy (pocl_thread_t *T);
+POCL_EXPORT
 void pocl_thread_join (pocl_thread_t T);
+
+POCL_EXPORT
+void pocl_barrier_init(pocl_barrier_t *B, unsigned long N);
+POCL_EXPORT
+void pocl_barrier_wait(pocl_barrier_t B);
+POCL_EXPORT
+void pocl_barrier_destroy(pocl_barrier_t *B);
 
 #ifdef __cplusplus
 }
@@ -118,22 +112,22 @@ void pocl_thread_join (pocl_thread_t T);
 #define POCL_INIT_LOCK(__LOCK__) pocl_mutex_init (&__LOCK__)
 #define POCL_DESTROY_LOCK(__LOCK__) pocl_mutex_destroy (&__LOCK__)
 
-#define POCL_FAST_LOCK_T POCL_LOCK_T
-#define POCL_FAST_LOCK(l) POCL_LOCK(l)
-#define POCL_FAST_UNLOCK(l) POCL_UNLOCK(l)
-#define POCL_FAST_INIT(l) POCL_INIT_LOCK(l)
-#define POCL_FAST_DESTROY(l) POCL_DESTROY_LOCK(l)
-
 #define POCL_INIT_COND(c) pocl_cond_init(&c)
 #define POCL_DESTROY_COND(c) pocl_cond_destroy(&c)
 #define POCL_SIGNAL_COND(c) pocl_cond_signal(c)
 #define POCL_BROADCAST_COND(c) pocl_cond_broadcast(c)
 #define POCL_WAIT_COND(c, m) pocl_cond_wait(c, m)
+
+// unsigned long t = time in milliseconds to wait
 // TODO: should ignore ETIMEDOUT
 #define POCL_TIMEDWAIT_COND(c, m, t) pocl_cond_timedwait(c, m, t)
 
 #define POCL_CREATE_THREAD(thr, func, arg) pocl_thread_create(&thr, func, arg)
 #define POCL_JOIN_THREAD(thr) pocl_thread_join(thr)
 #define POCL_DESTROY_THREAD(thr) pocl_thread_destroy(&thr)
+
+#define POCL_INIT_BARRIER(bar, number) pocl_barrier_init(&bar, number)
+#define POCL_WAIT_BARRIER(bar)   pocl_barrier_wait(bar)
+#define POCL_DESTROY_BARRIER(bar) pocl_barrier_destroy(&bar)
 
 #endif

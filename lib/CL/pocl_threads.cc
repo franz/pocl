@@ -21,13 +21,26 @@
    IN THE SOFTWARE.
 */
 
-#include "pocl_threads.hh"
+#include "pocl_threads_cpp.hh"
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+
+//#include "pocl_debug.h"
+
+struct _pocl_barrier_t {
+public:
+  _pocl_barrier_t(unsigned long ctr) : counter(ctr) {};
+  ~_pocl_barrier_t() = default;
+  void wait();
+private:
+   unsigned long counter;
+   std::mutex lock;
+   std::condition_variable cond;
+};
 
 struct _pocl_lock_t {
   std::mutex lock;
@@ -40,6 +53,9 @@ struct _pocl_cond_t {
 struct _pocl_thread_t {
   std::thread T;
 };
+
+static _pocl_lock_t pocl_init_lock_m;
+pocl_lock_t pocl_init_lock = &pocl_init_lock_m;
 
 void pocl_mutex_lock(pocl_lock_t L) {
   L->lock.lock();
@@ -61,9 +77,11 @@ void pocl_mutex_destroy(pocl_lock_t *L) {
 
 void pocl_cond_init(pocl_cond_t *C) {
   *C = new _pocl_cond_t;
+//  POCL_MSG_ERR("@@@@@@@@@@@@ CREATED COND VAR: %p\n", *C);
 }
 
 void pocl_cond_destroy(pocl_cond_t *C) {
+//  POCL_MSG_ERR("@@@@@@@@@@@@ DESTROY COND VAR: %p\n", *C);
   if (*C != nullptr) {
     delete *C;
   }
@@ -79,13 +97,15 @@ void pocl_cond_broadcast(pocl_cond_t C) {
 }
 
 void pocl_cond_wait(pocl_cond_t C, pocl_lock_t L) {
-  auto UL = std::unique_lock<std::mutex>(L->lock);
+  // the lock is expected to be locked by the user outside this call
+  auto UL = std::unique_lock<std::mutex>(L->lock, std::defer_lock);
   C->cond.wait(UL);
 }
 
-void pocl_cond_timedwait(pocl_cond_t C, pocl_lock_t L, uint64_t Timeout) {
-  auto UL = std::unique_lock<std::mutex>(L->lock);
-  auto TP = std::chrono::nanoseconds(Timeout);
+void pocl_cond_timedwait(pocl_cond_t C, pocl_lock_t L, unsigned long msec) {
+  // the lock is expected to be locked by the user outside this call
+  auto UL = std::unique_lock<std::mutex>(L->lock, std::defer_lock);
+  auto TP = std::chrono::milliseconds(msec);
   C->cond.wait_for(UL, TP);
 }
 
@@ -106,4 +126,31 @@ void pocl_thread_destroy (pocl_thread_t *T) {
     delete *T;
   }
   *T = nullptr;
+}
+
+void _pocl_barrier_t::wait() {
+  std::unique_lock<std::mutex> L(lock);
+  --counter;
+  if (counter == 0)
+    cond.notify_all();
+  while (counter > 0) {
+    cond.wait(L);
+  }
+}
+
+void pocl_barrier_init(pocl_barrier_t *B, unsigned long N) {
+  _pocl_barrier_t *L = new _pocl_barrier_t(N);
+  *B = L;
+}
+
+void pocl_barrier_wait(pocl_barrier_t B) {
+//  assert(B);
+  B->wait();
+}
+
+void pocl_barrier_destroy(pocl_barrier_t *B) {
+  if (*B != nullptr) {
+    delete *B;
+  }
+  *B = nullptr;
 }

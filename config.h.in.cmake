@@ -45,6 +45,8 @@
 
 #cmakedefine ENABLE_POCL_BUILDING
 
+#cmakedefine ENABLE_PLATFORM_CPP
+
 #cmakedefine ENABLE_PRINTF_IMMEDIATE_FLUSH
 
 #cmakedefine ENABLE_VSOCK

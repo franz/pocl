@@ -53,7 +53,7 @@ extern "C"
   {
     pocl_cond_t wake_meta_thread
       __attribute__ ((aligned (HOST_CPU_CACHELINE_SIZE)));
-    POCL_FAST_LOCK_T wq_lock_fast
+    pocl_lock_t wq_lock_fast
         __attribute__ ((aligned (HOST_CPU_CACHELINE_SIZE)));
     _cl_command_node *work_queue;
 

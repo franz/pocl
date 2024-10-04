@@ -198,22 +198,21 @@ set(POCL_LIB_SOURCES  "clCreateContextFromType.c"
                    "pocl_debug.h" "pocl_debug.c"
                    "pocl_tensor_util.h" "pocl_tensor_util.c"
                    "pocl_binary.c" "pocl_opengl.c" "pocl_cq_profiling.c"
-
+                   # platform dep
+                   "pocl_timing.h" "pocl_threads.h" "pocl_file_util.h"
+                   # dbks
                    "dbk/pocl_dbk_khr_jpeg_shared.c" "dbk/pocl_dbk_khr_jpeg_shared.h"
 )
 
+unset(EXTRA_LLVM_SOURCES)
+
 if(ENABLE_PLATFORM_CPP)
   list(APPEND POCL_LIB_SOURCES
-  "pocl_timing.cc" "pocl_timing.h"
-  "pocl_threads.cc" "pocl_threads.hh"
-  "pocl_file_util.h")
+       "pocl_timing.cc" "pocl_threads.cc")
   list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc")
 else()
   list(APPEND POCL_LIB_SOURCES
-  "pocl_timing.c" "pocl_timing.h"
-  "pocl_threads.c" "pocl_threads.h"
-  "pocl_file_util.c" "pocl_file_util.h"
-  )
+       "pocl_timing.c" "pocl_threads.c" "pocl_file_util.c")
 endif()
 
 if(ANDROID)

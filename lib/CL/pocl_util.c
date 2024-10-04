@@ -24,11 +24,16 @@
    IN THE SOFTWARE.
 */
 
+#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
+#define _POSIX_C_SOURCE 200809L
+
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <alloca.h>
 
 #include <time.h>
 
@@ -60,12 +65,9 @@
 #include "utlist.h"
 #include "utlist_addon.h"
 
-#ifdef ENABLE_RELOCATION
+#if defined(ENABLE_RELOCATION) && defined(HAVE_DLFCN_H)
 #if defined(__APPLE__)
 #define _DARWIN_C_SOURCE
-#endif
-#ifdef __linux__
-#define _GNU_SOURCE
 #endif
 #include <dlfcn.h>
 #endif
@@ -2463,7 +2465,8 @@ pocl_escape_quoted_whitespace (char *temp_options, char *replace_me)
 /* returns private datadir, possibly using relative path to libpocl sharedlib */
 int pocl_get_private_datadir(char* private_datadir)
 {
-#ifdef ENABLE_RELOCATION
+#if 0 // TODO
+#if defined(ENABLE_RELOCATION) && defined(HAVE_DLFCN_H)
     Dl_info info;
     if (dladdr((void*)pocl_get_private_datadir, &info))
     {
@@ -2480,6 +2483,7 @@ int pocl_get_private_datadir(char* private_datadir)
         else
           return -1;
     }
+#endif
 #endif
     strcpy (private_datadir, POCL_INSTALL_PRIVATE_DATADIR);
     return 0;
@@ -2791,7 +2795,7 @@ struct _pocl_async_callback_item
 static pocl_async_callback_item *async_callback_list = NULL;
 static pocl_cond_t async_cb_wake_cond
   __attribute__ ((aligned (HOST_CPU_CACHELINE_SIZE)));
-static POCL_FAST_LOCK_T async_cb_lock
+static pocl_lock_t async_cb_lock
   __attribute__ ((aligned (HOST_CPU_CACHELINE_SIZE)));
 static int exit_pocl_async_callback_thread = CL_FALSE;
 static pocl_thread_t async_callback_thread_id = 0;
@@ -2799,10 +2803,10 @@ static pocl_thread_t async_callback_thread_id = 0;
 static void
 pocl_async_cb_push (pocl_async_callback_item *it)
 {
-  POCL_FAST_LOCK (async_cb_lock);
+  POCL_LOCK (async_cb_lock);
   LL_APPEND (async_callback_list, it);
   POCL_SIGNAL_COND (async_cb_wake_cond);
-  POCL_FAST_UNLOCK (async_cb_lock);
+  POCL_UNLOCK (async_cb_lock);
 }
 
 void
@@ -2867,10 +2871,10 @@ pocl_mem_cb_push (cl_mem mem)
 void
 pocl_async_callback_finish ()
 {
-  POCL_FAST_LOCK (async_cb_lock);
+  POCL_LOCK (async_cb_lock);
   exit_pocl_async_callback_thread = CL_TRUE;
   POCL_SIGNAL_COND (async_cb_wake_cond);
-  POCL_FAST_UNLOCK (async_cb_lock);
+  POCL_UNLOCK (async_cb_lock);
   if (async_callback_thread_id)
     POCL_JOIN_THREAD (async_callback_thread_id);
   POCL_DESTROY_COND (async_cb_wake_cond);
@@ -2932,7 +2936,7 @@ pocl_async_callback_thread (void *data)
 {
   while (exit_pocl_async_callback_thread == CL_FALSE)
     {
-      POCL_FAST_LOCK (async_cb_lock);
+      POCL_LOCK (async_cb_lock);
       /* Event callback handling calls functions in the same order
          they were added if the status matches the specified one. */
       pocl_async_callback_item *it = NULL;
@@ -2945,7 +2949,7 @@ pocl_async_callback_thread (void *data)
         {
           POCL_WAIT_COND (async_cb_wake_cond, async_cb_lock);
         }
-      POCL_FAST_UNLOCK (async_cb_lock);
+      POCL_UNLOCK (async_cb_lock);
 
       if (it)
         {
@@ -2971,7 +2975,7 @@ pocl_async_callback_thread (void *data)
 void
 pocl_async_callback_init ()
 {
-  POCL_FAST_INIT (async_cb_lock);
+  POCL_INIT_LOCK (async_cb_lock);
   POCL_INIT_COND (async_cb_wake_cond);
   exit_pocl_async_callback_thread = CL_FALSE;
   async_callback_thread_id = 0;

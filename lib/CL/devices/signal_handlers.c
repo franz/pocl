@@ -243,6 +243,8 @@ sigfpe_signal_handler (int signo, siginfo_t *si, void *data)
 
 #endif
 
+static char signal_empty_file[POCL_MAX_PATHNAME_LENGTH];
+
 void
 pocl_install_sigfpe_handler ()
 {
@@ -258,9 +260,8 @@ pocl_install_sigfpe_handler ()
    * Registering our handlers before LLVM creates its sigaltstack
    * leads to interesting crashes & bugs later.
    */
-  char random_empty_file[POCL_MAX_PATHNAME_LENGTH];
-  pocl_cache_tempname (random_empty_file, NULL, NULL);
-  pocl_llvm_remove_file_on_signal (random_empty_file);
+  pocl_cache_tempname (signal_empty_file, NULL, NULL);
+  pocl_llvm_remove_file_on_signal_create (signal_empty_file);
 #endif
 
   POCL_MSG_PRINT_GENERAL ("Installing SIGFPE handler...\n");
@@ -269,5 +270,13 @@ pocl_install_sigfpe_handler ()
   sigfpe_action.sa_sigaction = sigfpe_signal_handler;
   int res = sigaction (SIGFPE, &sigfpe_action, &old_sigfpe_action);
   assert (res == 0);
+#endif
+}
+
+void
+pocl_destroy_sigfpe_handler ()
+{
+#ifdef ENABLE_LLVM
+  pocl_llvm_remove_file_on_signal_destroy (signal_empty_file);
 #endif
 }

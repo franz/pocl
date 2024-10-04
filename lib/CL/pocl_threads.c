@@ -21,8 +21,14 @@
    IN THE SOFTWARE.
 */
 
-#include "pocl_threads.h"
+#define _GNU_SOURCE
+#include "pocl_threads_c.h"
 #include "pocl_debug.h"
+
+#include <time.h>
+#include <errno.h>
+
+pocl_lock_t pocl_init_lock = POCL_LOCK_INITIALIZER;
 
 void
 pocl_abort_on_pthread_error (int status, unsigned line, const char *func)
@@ -33,4 +39,19 @@ pocl_abort_on_pthread_error (int status, unsigned line, const char *func)
       POCL_ABORT ("PTHREAD ERROR in %s():%u: %s (%d)\n", func, line,
                   strerror (status), status);
     }
+}
+
+void pocl_timed_wait (pocl_cond_t *c, pocl_lock_t *m, unsigned long msec) {
+  struct timespec now = { 0, 0 };
+  clock_gettime (CLOCK_REALTIME, &now);
+
+  unsigned long nsec = msec * 1000000UL;
+  if (now.tv_nsec + nsec < 1000000000UL) {
+    now.tv_nsec += nsec;
+  } else {
+    now.tv_nsec = now.tv_nsec + nsec - 1000000000UL;
+    now.tv_sec += 1;
+  }
+
+  PTHREAD_CHECK2 (ETIMEDOUT, pthread_cond_timedwait (c, m, &now));
 }
