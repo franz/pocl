@@ -36,7 +36,6 @@
 
 #include "pocl_cache.h"
 #include "pocl_file_util.h"
-#include "pocl_process.h"
 #include "pocl_util.h"
 
 #include "pocl_workgroup_func.h"

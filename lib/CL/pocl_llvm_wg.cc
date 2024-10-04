@@ -75,7 +75,6 @@ POP_COMPILER_DIAGS
 #include "pocl_cache.h"
 #include "pocl_file_util.h"
 #include "pocl_llvm_api.h"
-#include "pocl_process.h"
 #include "pocl_spir.h"
 #include "pocl_util.h"
 
@@ -1006,11 +1005,10 @@ static int convertBCorSPV(char *InputPath,
     CompilationArgs2[i] = (char *)CompilationArgs[i].data();
   CompilationArgs2[CompilationArgs.size()] = nullptr;
 
-  r = pocl_run_command_capture_output(CapturedOutput, &CapturedBytes,
-                                      CompilationArgs2.data());
+  // TODO removed output capture
+  r = pocl_run_command(CompilationArgs2.data());
   if (r != 0) {
-    BuildLog->append("llvm-spirv failed with output:\n");
-    BuildLog->append(CapturedOutput, CapturedBytes);
+    BuildLog->append("llvm-spirv failed\n");
     goto FINISHED;
   }
 

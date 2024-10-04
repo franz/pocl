@@ -209,10 +209,12 @@ unset(EXTRA_LLVM_SOURCES)
 if(ENABLE_PLATFORM_CPP)
   list(APPEND POCL_LIB_SOURCES
        "pocl_timing.cc" "pocl_threads.cc")
-  list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc" "pocl_llvm_dynlib.cc" "pocl_llvm_process.cc")
+  list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc" "pocl_llvm_dynlib.cc")
+# "pocl_llvm_process.cc")
 else()
   list(APPEND POCL_LIB_SOURCES
-       "pocl_timing.c" "pocl_threads.c" "pocl_file_util.c" "pocl_dynlib.c" "pocl_process.c")
+       "pocl_timing.c" "pocl_threads.c" "pocl_file_util.c" "pocl_dynlib.c")
+# "pocl_process.c")
 endif()
 
 if(ANDROID)

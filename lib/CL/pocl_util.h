@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "pocl_cl.h"
 
 #ifdef __cplusplus
@@ -310,6 +311,17 @@ pocl_status_to_str (int status);
 POCL_EXPORT
 const char *
 pocl_command_to_str (cl_command_type cmd);
+
+POCL_EXPORT
+int pocl_run_command (const char **args);
+
+#if defined(HAVE_VFORK) || defined(HAVE_FORK)
+POCL_EXPORT
+int pocl_run_command_capture_output (char *capture_string,
+                                     size_t *captured_bytes,
+                                     const char **args);
+#endif
+
 
 uint16_t float_to_half (float value);
 
