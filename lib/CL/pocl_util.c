@@ -33,7 +33,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+
+#if defined(__FreeBSD__)
+#include <stdlib.h>
+#elif defined(__WIN32)
+#include <malloc.h>
+#else
 #include <alloca.h>
+#endif
 
 #include <time.h>
 
@@ -49,6 +56,10 @@
 #include <utime.h>
 #else
 #  include "vccompat.hpp"
+#endif
+
+#ifdef __MINGW32__
+#include <process.h>
 #endif
 
 #include "common.h"
@@ -1780,10 +1791,30 @@ int
 pocl_run_command (const char **args)
 {
   POCL_MSG_PRINT_INFO ("Launching: %s\n", args[0]);
-#ifdef HAVE_VFORK
+#if defined(HAVE_VFORK) || defined(HAVE_FORK)
+#if defined(HAVE_VFORK)
   pid_t p = vfork ();
-#elif defined(HAVE_FORK)
+#else
   pid_t p = fork ();
+#endif
+  if (p == 0)
+    {
+      return execv (args[0], (char *const *)args);
+    }
+  else
+    {
+      if (p < 0)
+        return EXIT_FAILURE;
+      int status;
+      if (waitpid (p, &status, 0) < 0)
+        POCL_ABORT ("pocl: waitpid() failed.\n");
+      if (WIFEXITED (status))
+        return WEXITSTATUS (status);
+      else if (WIFSIGNALED (status))
+        return WTERMSIG (status);
+      else
+        return EXIT_FAILURE;
+    }
 #elif _WIN32
   STARTUPINFO si;
   ZeroMemory(&si, sizeof(si));
@@ -1806,24 +1837,6 @@ pocl_run_command (const char **args)
 #else
 #error Must have fork() or vfork() or Win32 CreateProcess
 #endif
-  if (p == 0)
-    {
-      return execv (args[0], (char *const *)args);
-    }
-  else
-    {
-      if (p < 0)
-        return EXIT_FAILURE;
-      int status;
-      if (waitpid (p, &status, 0) < 0)
-        POCL_ABORT ("pocl: waitpid() failed.\n");
-      if (WIFEXITED (status))
-        return WEXITSTATUS (status);
-      else if (WIFSIGNALED (status))
-        return WTERMSIG (status);
-      else
-        return EXIT_FAILURE;
-    }
 }
 
 #if defined(HAVE_VFORK) || defined(HAVE_FORK)

@@ -5,6 +5,10 @@
 
 #include <cassert>
 
+#ifdef _WIN32
+#include "vccompat.hpp"
+#endif
+
 #include "pocl.h"
 #include "pocl_debug.h"
 #include "pocl_file_util.h"
@@ -288,6 +292,9 @@ pocl_write_tempfile (char *output_path, const char *prefix, const char *suffix,
 #elif defined(HAVE_FSYNC)
   if (fsync (fd))
     return errno;
+#elif defined(_WIN32)
+  // TODO get native handle from FD
+  // FlushFileBuffers(fh);
 #endif
 
   err = close (fd);

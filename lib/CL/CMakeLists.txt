@@ -348,8 +348,11 @@ add_library("${POCL_LIBRARY_NAME}" ${LIBPOCL_OBJS})
 
 harden("${POCL_LIBRARY_NAME}")
 
-if((UNIX OR MINGW) AND (NOT APPLE))
+if(UNIX AND (NOT APPLE))
   target_link_options("${POCL_LIBRARY_NAME}" PRIVATE "LINKER:--exclude-libs,ALL")
+endif()
+if(WIN32)
+  target_link_options("${POCL_LIBRARY_NAME}" PRIVATE "LINKER:--enable-auto-import,--enable-runtime-pseudo-reloc")
 endif()
 
 set_target_properties("${POCL_LIBRARY_NAME}" PROPERTIES SOVERSION "${LIB_API_VERSION}"

@@ -214,6 +214,7 @@ separate_arguments(LLVM_LIBS)
 
 # With Visual Studio llvm-config gives invalid list of static libs (libXXXX.a instead of XXXX.lib)
 # we extract the pure names (LLVMLTO, LLVMMipsDesc etc) and let find_library do its job
+if(0)
 foreach(LIBFLAG ${LLVM_LIBS})
   STRING(REGEX REPLACE "^-l(.*)$" "\\1" LIB_NAME ${LIBFLAG})
   list(APPEND LLVM_LIBNAMES "${LIB_NAME}")
@@ -226,6 +227,7 @@ foreach(LIBNAME ${LLVM_LIBNAMES})
   endif()
   list(APPEND LLVM_LIBFILES "${L_LIBFILE_${LIBNAME}}")
 endforeach()
+endif()
 
 set(POCL_LLVM_LIBS ${LLVM_LIBFILES})
 

@@ -26,6 +26,8 @@
 
 #if defined(__GNUC__) && (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ >= 1)
 #define POCL_EXPORT __attribute__ ((visibility ("default")))
+#elif defined(_WIN32)
+#define POCL_EXPORT __attribute__ ((dllexport))
 #else
 #define POCL_EXPORT
 #endif

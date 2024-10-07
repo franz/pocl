@@ -40,6 +40,7 @@
 #  include <unistd.h>
 #else
 #  include "vccompat.hpp"
+#define sleep(x) Sleep(x)
 #endif
 
 #include "common.h"

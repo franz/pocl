@@ -34,7 +34,7 @@ MESSAGE(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 MESSAGE(STATUS "CMAKE_LIBRARY_ARCHITECTURE: ${CMAKE_LIBRARY_ARCHITECTURE}")
 
 set(LATEST_KNOWN_CXX_STD_VERSION "20")
-set(SUPPORTED_CXX_STD_VERSION "11")
+set(SUPPORTED_CXX_STD_VERSION "17")
 
 option(ENABLE_LATEST_CXX_STD "Upgrade C++ standard version to ${LATEST_KNOWN_CXX_STD_VERSION}. Required to get rid of unused variables warnings in compilers not supporting [[gnu::*]] attributes. Can bring other benefits, including performance and efficiency ones. Before a pull request build with this disabled." OFF)
 if(ENABLE_LATEST_CXX_STD)
@@ -90,7 +90,7 @@ macro(pass_through_cpack_vars)
 endmacro()
 
 # don't allow implicit function declarations
-if(UNIX OR MINGW)
+if(UNIX)
   if((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR
      (CMAKE_C_COMPILER_ID STREQUAL "Clang"))
 
@@ -118,7 +118,9 @@ set(POCL_VERSION_BASE ${VERSION_STRING})
 # required b/c SHARED libs defaults to ON while OBJECT defaults to OFF
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # CMake doesn't add "-pie" by default for executables (CMake issue #14983)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
+if(UNIX)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
+endif()
 
 enable_testing()
 
@@ -329,7 +331,10 @@ if(NOT DEFINED PRINTF_BUFFER_SIZE)
   set(PRINTF_BUFFER_SIZE 16384 CACHE STRING "printf buffer size, in KB")
 endif()
 
-if (ENABLE_PLATFORM_CPP)
+if(ENABLE_PLATFORM_CPP)
+  if(NOT ENABLE_LLVM)
+    message(FATAL_ERROR "ENABLE_PLATFORM_CPP requires also ENABLE_LLVM")
+  endif()
   if(ENABLE_LOADABLE_DRIVERS)
     message(WARNING "LLVM dynlibs implementation doesn't support loadable drivers, disabling.")
     set(ENABLE_LOADABLE_DRIVERS 0)
@@ -461,12 +466,24 @@ endif()
 
 find_package(PkgConfig MODULE)
 
-set(DEFAULT_ENABLE_HWLOC OFF CACHE INTERNAL "default hwloc")
-if(PKG_CONFIG_FOUND)
-  pkg_check_modules(HWLOC IMPORTED_TARGET hwloc>=1.0)
+if(NOT DEFINED DEFAULT_ENABLE_HWLOC)
+  if(PKG_CONFIG_FOUND)
+    pkg_check_modules(HWLOC IMPORTED_TARGET hwloc>=1.0)
+  endif()
+
+  if(WIN32 AND NOT HWLOC_FOUND)
+    find_library(HWLOC_DLL "hwloc")
+    find_library(HWLOC_LIB "libhwloc.lib")
+    find_path(HWLOC_INC_DIR "hwloc.h")
+    if (HWLOC_LIB AND HWLOC_DLL AND HWLOC_INC_DIR)
+      set(HWLOC_FOUND 1)
+    endif()
+  endif()
 
   if(HWLOC_FOUND)
     set(DEFAULT_ENABLE_HWLOC ON CACHE INTERNAL "default hwloc")
+  else()
+    set(DEFAULT_ENABLE_HWLOC OFF CACHE INTERNAL "default hwloc")
   endif()
 endif()
 
@@ -522,7 +539,7 @@ endif()
 if(NOT HOST_CPU_CACHELINE_SIZE)
 
   set(CL_SIZE 0)
-  if(UNIX OR MINGW OR CMAKE_HOST_SYSTEM_NAME MATCHES "Linux|Darwin")
+  if(UNIX OR CMAKE_HOST_SYSTEM_NAME MATCHES "Linux|Darwin")
     find_program(GETCONF "getconf")
     if(GETCONF)
       execute_process(COMMAND "getconf" "LEVEL1_DCACHE_LINESIZE"
@@ -645,7 +662,7 @@ endif()
 
 ######################################################################################
 
-if(UNIX OR MINGW)
+if(UNIX)
   include(CheckCSourceCompiles)
   include(CheckSymbolExists)
 
@@ -773,7 +790,7 @@ int main()
 endfunction(check_64bit_atomics)
 
 # platforms w/o lockfree 64bit atomics need to link with -latomic
-if(UNIX OR MINGW)
+if(UNIX)
     check_64bit_atomics(HAVE_64BIT_ATOMICS_WITHOUT_LIB)
     if(HAVE_64BIT_ATOMICS_WITHOUT_LIB)
         set(HAVE_64BIT_ATOMICS_WITH_LIB FALSE)
@@ -790,7 +807,7 @@ endif()
 
 ######################################################################################
 
-if((UNIX OR MINGW) AND ENABLE_LLVM AND HAVE_DLADDR)
+if(UNIX AND ENABLE_LLVM AND HAVE_DLADDR)
     option(ENABLE_RELOCATION "make libpocl relocatable" ON)
 else()
     message(STATUS "Relocation not available")
@@ -894,7 +911,7 @@ set(KERNEL_C_FLAGS "${DEFAULT_KERNEL_C_FLAGS}${EXTRA_KERNEL_FLAGS}${EXTRA_KERNEL
 
 ######################################################################################
 
-if(UNIX OR MINGW)
+if(UNIX)
   if(APPLE)
     # MacOS ld outputs useless warnings like
     # ld: warning: -macosx_version_min not specificed, assuming 10.7
@@ -916,7 +933,7 @@ endif()
 
 ######################################################################################
 
-if(UNIX OR MINGW)
+if(UNIX)
   if(APPLE)
     # TODO MACOSX_BUNDLE target prop
     set(ICD_LD_FLAGS "-single_module")
@@ -949,7 +966,7 @@ set(HAVE_DLFCN_H OFF CACHE BOOL "dlopen" FORCE)
 if(WIN32 AND (NOT MINGW))
   message(STATUS "Using LoadLibrary/FreeLibrary in Windows, libltdl not needed.")
 
-elseif(UNIX OR MINGW)
+elseif(UNIX)
 
   if (CMAKE_CROSSCOMPILING AND (NOT ENABLE_HOST_CPU_DEVICES) AND (NOT ENABLE_HSA))
     message(STATUS "Cross-compiling without CPU/HSA devices -> skipping LIBDL search")
@@ -975,7 +992,8 @@ elseif(UNIX OR MINGW)
       endif()
       set(HAVE_DLFCN_H ON CACHE BOOL "dlfcn.h" FORCE)
     else()
-      message(FATAL_ERROR "Could not find dlfcn.h!")
+      message(STATUS "dlfcn.h header not found")
+	  set(HAVE_DLFCN_H OFF CACHE BOOL "dlfcn.h" FORCE)
     endif()
 
   endif()
