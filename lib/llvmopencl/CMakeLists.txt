@@ -40,7 +40,7 @@ set(LLVMPASSES_SOURCES "AllocasToEntry.cc"
                        "DebugHelpers.cc"
                        "DebugHelpers.h"
                        "EmitPrintf.cc"
-                       "EmitPrintf.hh"
+#                       "EmitPrintf.hh"
                        "Flatten.cc"
                        "FlattenGlobals.cc"
                        "FlattenBarrierSubs.cc"
@@ -62,7 +62,7 @@ set(LLVMPASSES_SOURCES "AllocasToEntry.cc"
                        "LoopBarriers.cc"
                        "LoopBarriers.h"
                        "MinLegalVecSize.cc"
-                       "MinLegalVecSize.hh"
+#                       "MinLegalVecSize.hh"
                        "OptimizeWorkItemFuncCalls.cc"
                        "OptimizeWorkItemFuncCalls.h"
                        "OptimizeWorkItemGVars.cc"
@@ -76,7 +76,7 @@ set(LLVMPASSES_SOURCES "AllocasToEntry.cc"
                        "RemoveBarrierCalls.cc"
                        "RemoveBarrierCalls.h"
                        "SVMOffset.cc"
-                       "SVMOffset.hh"
+#                       "SVMOffset.hh"
                        "SubCFGFormation.cc"
                        "SubCFGFormation.h"
                        "VariableUniformityAnalysis.cc"
@@ -94,74 +94,44 @@ set(LLVMPASSES_SOURCES "AllocasToEntry.cc"
 if (ENABLE_REMOTE_SERVER)
   list(APPEND LLVMPASSES_SOURCES
     "SVMOffset.cc"
-    "SVMOffset.hh")
+#    "SVMOffset.hh"
+    )
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LLVM_CFLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXXFLAGS}")
+set_source_files_properties( ${LLVMPASSES_SOURCES} PROPERTIES LANGUAGE CXX )
 
-include_directories(${LLVM_INCLUDE_DIRS})
-include_directories(../CL)
-include_directories(../CL/devices)
+# add library of llvm passes (the object form is linked to libpocl)
+llvm_add_library(llvmpasses LINK_COMPONENTS ${POCL_LLVM_LINK_TARGETS}
+  ${LLVM_LINK_TYPE} OBJECT ${LLVMPASSES_SOURCES})
+# also link to clang libraries
+target_link_libraries(llvmpasses PRIVATE ${POCL_CLANG_LINK_TARGETS})
+# harden("llvmpasses")
 
-if(MSVC)
-  set_source_files_properties( ${LLVMPASSES_SOURCES} PROPERTIES LANGUAGE CXX )
-endif(MSVC)
-
-# This library (just a bunch of objects really) is linked against libpocl
-# to call the kernel compiler passes directly from the host library.
-#noinst_LTLIBRARIES = libllvmpasses.la
-add_library("llvmpasses" OBJECT ${LLVMPASSES_SOURCES})
-harden("llvmpasses")
-
+target_include_directories(llvmpasses PRIVATE "${CMAKE_SOURCE_DIR}/lib/CL")
+target_include_directories(llvmpasses PRIVATE "${CMAKE_SOURCE_DIR}/lib/CL/devices")
+target_include_directories(llvmpasses PRIVATE ${LLVM_INCLUDE_DIR})
+target_compile_definitions(llvmpasses PRIVATE ${LLVM_DEFINITIONS_LIST})
 if(OCL_ICD_INCLUDE_DIRS)
   target_include_directories("llvmpasses" SYSTEM PUBLIC ${OCL_ICD_INCLUDE_DIRS})
 endif()
 
-option(ENABLE_LIBLLVMOPENCL "Build separate libllvmopencl.so for use with 'opt'" OFF)
-if(ENABLE_LIBLLVMOPENCL)
-# This creates a separate llvmopencl.so that is loaded to 'opt'
-# for the pocl-workgroup version.
-#pkglib_LTLIBRARIES = llvmopencl.la
-add_library("llvmopencl" MODULE "$<TARGET_OBJECTS:llvmpasses>")
-harden("llvmopencl")
+# we don't want "llvmpassse" library to be built (it references symbols
+# that exist in lib/CL/pocl_llvm_*.cc files),
+# only the OBJECT library (obj.llvmpasses) built by default
+set_target_properties(llvmpasses PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+set_target_properties(obj.llvmpasses PROPERTIES EXCLUDE_FROM_ALL 0 EXCLUDE_FROM_DEFAULT_BUILD 0)
 
-# not sure where other platforms get their library linkage list, probably there is
-# way to make this more consistent on different platforms
-if(MSVC)
-  target_link_libraries("llvmopencl" ${POCL_LLVM_LIBS})
-endif(MSVC)
-
-#target_link_libraries("llvmopencl" "${LLVM_SYSLIBS}")
-endif(ENABLE_LIBLLVMOPENCL)
- 
-# TODO cmake should handle this, i might me missing something …
-if(APPLE)
-  set(ADD_LD_FLAGS "-Wl,-undefined -Wl,dynamic_lookup ")
-else()
-  set(ADD_LD_FLAGS "-Wl,-export-dynamic")
-endif()
-
-if(ENABLE_LIBLLVMOPENCL)
-# TODO ENABLE_EXPORTS -> Wl,export_dynamic
-# https://www.cmake.org/cmake/help/v2.8.12/cmake.html#prop_tgt:ENABLE_EXPORTS
-# https://www.cmake.org/pipermail/cmake/2011-November/047708.html
-set_target_properties("llvmopencl" PROPERTIES LINK_FLAGS "${LLVM_LDFLAGS} ${ADD_LD_FLAGS}")
 if(NOT APPLE)
-  set_target_properties("llvmopencl" PROPERTIES SOVERSION "${KERNEL_COMPILER_LIB_VERSION}" VERSION "${KERNEL_COMPILER_LIB_VERSION}")
+  set_target_properties("llvmpasses" PROPERTIES SOVERSION "${KERNEL_COMPILER_LIB_VERSION}" VERSION "${KERNEL_COMPILER_LIB_VERSION}")
 endif()
 
-install(TARGETS "llvmopencl"
+install(TARGETS "llvmpasses"
         LIBRARY DESTINATION ${POCL_INSTALL_PRIVATE_LIBDIR}
         COMPONENT "lib"
         ARCHIVE DESTINATION ${POCL_INSTALL_PRIVATE_LIBDIR}/static
         COMPONENT "dev"
 )
-endif(ENABLE_LIBLLVMOPENCL)
 
 if(ENABLE_IPO)
   set_property(TARGET "llvmpasses" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-if(ENABLE_LIBLLVMOPENCL)
-  set_property(TARGET "llvmopencl" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif(ENABLE_LIBLLVMOPENCL)
 endif()

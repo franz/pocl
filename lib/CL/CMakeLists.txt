@@ -210,11 +210,9 @@ if(ENABLE_PLATFORM_CPP)
   list(APPEND POCL_LIB_SOURCES
        "pocl_timing.cc" "pocl_threads.cc")
   list(APPEND EXTRA_LLVM_SOURCES "pocl_llvm_file_utils.cc" "pocl_llvm_dynlib.cc")
-# "pocl_llvm_process.cc")
 else()
   list(APPEND POCL_LIB_SOURCES
        "pocl_timing.c" "pocl_threads.c" "pocl_file_util.c" "pocl_dynlib.c")
-# "pocl_process.c")
 endif()
 
 if(ANDROID)
@@ -255,22 +253,27 @@ if (ENABLE_LLVM)
   unset(CMAKE_CXX_STANDARD_REQUIRED)
 
   set(LLVM_API_SOURCES "pocl_llvm_build.cc" "pocl_llvm_metadata.cc" "pocl_llvm_utils.cc" "pocl_llvm_wg.cc" ${EXTRA_LLVM_SOURCES})
-  set_source_files_properties(${LLVM_API_SOURCES} PROPERTIES COMPILE_FLAGS "${LLVM_CXXFLAGS} -I\"${CMAKE_CURRENT_SOURCE_DIR}/../llvmopencl\"")
 
-  add_library("lib_cl_llvm" OBJECT ${LLVM_API_SOURCES})
-  target_include_directories(lib_cl_llvm PRIVATE ${LLVM_INCLUDE_DIRS})
-  harden("lib_cl_llvm")
+  llvm_add_library("lib_cl_llvm" LINK_COMPONENTS ${POCL_LLVM_LINK_TARGETS}
+    ${LLVM_LINK_TYPE} OBJECT ${LLVM_API_SOURCES} PARTIAL_SOURCES_INTENDED)
+  # also link to clang libraries
+  target_link_libraries(lib_cl_llvm PRIVATE ${POCL_CLANG_LINK_TARGETS})
+  #harden("lib_cl_llvm")
+
+  target_include_directories(lib_cl_llvm PRIVATE "${CMAKE_SOURCE_DIR}/lib/llvmopencl")
+  target_include_directories(lib_cl_llvm PRIVATE ${LLVM_INCLUDE_DIR})
+  target_compile_definitions(lib_cl_llvm PRIVATE ${LLVM_DEFINITIONS_LIST})
 
   if(OCL_ICD_INCLUDE_DIRS)
-    target_include_directories("lib_cl_llvm" SYSTEM PUBLIC ${OCL_ICD_INCLUDE_DIRS})
+    target_include_directories(lib_cl_llvm SYSTEM PUBLIC ${OCL_ICD_INCLUDE_DIRS})
   endif()
 
   if (HAVE_LLVM_SPIRV_LIB)
     target_include_directories(lib_cl_llvm PRIVATE ${LLVM_SPIRV_INCLUDEDIR})
   endif()
 
-  list(APPEND LIBPOCL_OBJS "$<TARGET_OBJECTS:llvmpasses>")
-  list(APPEND LIBPOCL_OBJS "$<TARGET_OBJECTS:lib_cl_llvm>")
+  list(APPEND LIBPOCL_OBJS "$<TARGET_OBJECTS:obj.llvmpasses>")
+  list(APPEND LIBPOCL_OBJS "$<TARGET_OBJECTS:obj.lib_cl_llvm>")
 
   # pocl_cache.c depends on a SHA1 hash of all built kernel-<target>.bc
   add_dependencies("pocl_cache" "kernellib_hash")
@@ -313,7 +316,7 @@ if(POCL_DEVICES_LINK_LIST)
 endif()
 
 if(ENABLE_LLVM)
-   list(APPEND POCL_PRIVATE_LINK_LIST ${CLANG_LIBFILES} ${POCL_LLVM_LIBS} ${LLVM_SYSLIBS})
+   list(APPEND POCL_PRIVATE_LINK_LIST ${POCL_CLANG_LINK_TARGETS} ${POCL_LLVM_LINK_TARGETS} ${LLVM_SYSLIBS})
    if (HAVE_LLVM_SPIRV_LIB)
      list(PREPEND POCL_PRIVATE_LINK_LIST ${LLVM_SPIRV_LIB})
    endif()

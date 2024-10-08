@@ -39,7 +39,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_pocl_device_library("pocl-devices-cuda" pocl-cuda.c pocl-cuda.h pocl-ptx-gen.cc pocl-ptx-gen.h)
 target_compile_definitions("pocl-devices-cuda" PRIVATE "-DCUDA_TOOLKIT_ROOT_DIR=\"${CUDA_TOOLKIT_ROOT_DIR}\"")
 if(ENABLE_LOADABLE_DRIVERS)
-  target_link_libraries(pocl-devices-cuda PRIVATE cuda ${POCL_LLVM_LIBS} ${PTHREAD_LIBRARY})
+  target_link_libraries(pocl-devices-cuda PRIVATE cuda ${POCL_LLVM_LINK_TARGETS} ${PTHREAD_LIBRARY})
 endif()
 
 if(ENABLE_CUDNN)
