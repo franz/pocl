@@ -1704,11 +1704,11 @@ pocl_cuda_free_program (cl_device_id device, cl_program program,
   return CL_SUCCESS;
 }
 
-void
+int
 pocl_cuda_compile_kernel (_cl_command_node *cmd, cl_kernel kernel,
                           cl_device_id device, int specialize)
 {
-  return;
+  return CL_SUCCESS;
 }
 
 int

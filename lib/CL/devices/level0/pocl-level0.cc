@@ -165,7 +165,7 @@ void pocl_level0_init_device_ops(struct pocl_device_ops *Ops) {
   Ops->setup_metadata = pocl_level0_setup_metadata;
   Ops->supports_binary = pocl_level0_supports_binary;
   Ops->build_poclbinary = pocl_level0_build_poclbinary;
-  Ops->compile_kernel = NULL;
+  Ops->compile_kernel = nullptr;
   Ops->create_kernel = pocl_level0_create_kernel;
   Ops->free_kernel = pocl_level0_free_kernel;
   Ops->init_build = pocl_level0_init_build;

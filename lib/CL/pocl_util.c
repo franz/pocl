@@ -2214,6 +2214,14 @@ pocl_update_event_failed (cl_event event)
 }
 
 void
+pocl_update_event_failed2 (cl_event event)
+{
+  POCL_LOCK_OBJ (event);
+  pocl_update_event_finished (CL_FAILED, NULL, 0, event, NULL);
+  POCL_UNLOCK_OBJ (event);
+}
+
+void
 pocl_update_event_device_lost (cl_event event)
 {
   POCL_UNLOCK_OBJ (event);
