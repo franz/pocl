@@ -89,6 +89,7 @@ islessgreater.cl
 isnotequal.cl
 isordered.cl
 isunordered.cl
+ldexp.cl
 mad24.cl
 mad.cl
 mad_hi.cl
@@ -224,7 +225,6 @@ sleef-pocl/frfrexp.cl
 sleef-pocl/frexp.cl
 sleef-pocl/hypot.cl
 sleef-pocl/ilogb.cl
-sleef-pocl/ldexp.cl
 sleef-pocl/lgamma.cl
 sleef-pocl/lgamma_r.cl
 sleef-pocl/log10.cl

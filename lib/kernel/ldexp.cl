@@ -30,4 +30,3 @@
 
 DEFINE_BUILTIN_V_VJ(ldexp)
 
-DEFINE_EXPR_V_VI(ldexp, ldexp(a, (jtype)b))
