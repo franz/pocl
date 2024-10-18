@@ -641,7 +641,7 @@ static std::string convertPassesToPipelineString(const std::vector<std::string> 
   return Pipeline;
 }
 
-static bool runKernelCompilerPasses(cl_device_id Device, llvm::Module &Mod) {
+static bool runKernelCompilerPasses(cl_device_id Device, llvm::Module &Mod, bool Optimize) {
 
   TwoStagePoCLModulePassManager PM;
   std::vector<std::string> Passes1;
@@ -651,7 +651,9 @@ static bool runKernelCompilerPasses(cl_device_id Device, llvm::Module &Mod) {
   addStage2PassesToPipeline(Device, Passes2);
   std::string P2 = convertPassesToPipelineString(Passes2);
 
-  Error E = PM.build(Device, P1, 2, 0, P2, 3, 0);
+  Error E = PM.build(Device,
+                     P1, Optimize ? 2 : 1, 0,
+                     P2, Optimize ? 3 : 0, 0);
   if (E) {
     std::cerr << "LLVM: failed to create compilation pipeline";
     return false;
@@ -1282,11 +1284,13 @@ static int pocl_llvm_run_pocl_passes(llvm::Module *Bitcode,
   setModuleIntMetadata(Bitcode, "device_max_witem_sizes_2",
                        Device->max_work_item_sizes[2]);
 
+  std::string Opts(Kernel->program->compiler_options);
+  bool Optimize = Opts.find("-cl-opt-disable") != std::string::npos;
 #ifdef DUMP_LLVM_PASS_TIMINGS
   llvm::TimePassesIsEnabled = true;
 #endif
   POCL_MEASURE_START(llvm_workgroup_ir_func_gen);
-  runKernelCompilerPasses(Device, *Bitcode);
+  runKernelCompilerPasses(Device, *Bitcode, Optimize);
   POCL_MEASURE_FINISH(llvm_workgroup_ir_func_gen);
 #ifdef DUMP_LLVM_PASS_TIMINGS
   llvm::reportAndResetTimings();
