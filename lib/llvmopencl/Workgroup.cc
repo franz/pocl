@@ -269,7 +269,11 @@ bool WorkgroupImpl::runOnModule(Module &M, llvm::FunctionAnalysisManager &FAM) {
 
   for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
     Function &OrigKernel = *i;
-    if (!isKernelToProcess(OrigKernel)) continue;
+    if (!isKernelToProcess(OrigKernel)) {
+      OrigKernel.removeFnAttr(Attribute::NoInline);
+      OrigKernel.removeFnAttr(Attribute::OptimizeNone);
+      continue;
+    }
     Function *L = createWrapper(&OrigKernel, PrintfCache);
     KernelsMap[&OrigKernel] = L;
     // always inline the Original Kernel into the workgroup launcher
