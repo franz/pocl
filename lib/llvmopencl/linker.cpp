@@ -393,11 +393,6 @@ static void shared_copy(llvm::Module *program, const llvm::Module *lib,
     for (unsigned i = 0, e = NMD.getNumOperands(); i != e; ++i)
       NewNMD->addOperand(MapMetadata(NMD.getOperand(i), vvm));
   }
-
-  /* LLVM 1x complains about this being an invalid MDnode. */
-  llvm::NamedMDNode *DebugCU = program->getNamedMetadata("llvm.dbg.cu");
-  if (DebugCU && DebugCU->getNumOperands() == 0)
-    program->eraseNamedMetadata(DebugCU);
 }
 
 /* Replace printf calls with generated bitcode that stores the format-string
@@ -540,7 +535,7 @@ static void replaceIntrinsics(llvm::Module *Program, const llvm::Module *Lib,
 using namespace pocl;
 
 int link(llvm::Module *Program, const llvm::Module *Lib, std::string &Log,
-         cl_device_id ClDev) {
+         cl_device_id ClDev, bool StripAllDebugInfo) {
 
   assert(Program);
   assert(Lib);
@@ -667,7 +662,11 @@ int link(llvm::Module *Program, const llvm::Module *Lib, std::string &Log,
 
   shared_copy(Program, Lib, Log, vvm);
 
-  removeDuplicateDbgInfo(Program);
+  if (StripAllDebugInfo) {
+    llvm::StripDebugInfo(*Program);
+  } else {
+    removeDuplicateDbgInfo(Program);
+  }
 
   fixCallingConv(Program, Log);
 
