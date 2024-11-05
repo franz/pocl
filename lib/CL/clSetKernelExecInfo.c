@@ -132,7 +132,7 @@ POname(clSetKernelExecInfo)(cl_kernel kernel,
       }
 
     default:
-      POCL_RETURN_ERROR_ON (1, CL_INVALID_VALUE,
+      POCL_RETURN_ERROR ( CL_INVALID_VALUE,
                             "Given param_name(%u) is not valid\n", param_name);
     }
 }

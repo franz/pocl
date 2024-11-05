@@ -943,7 +943,7 @@ pocl_basic_get_subgroup_info_ext (cl_device_id device,
           }
       }
     default:
-      POCL_RETURN_ERROR_ON (1, CL_INVALID_VALUE, "Unknown param_name: %u\n",
+      POCL_RETURN_ERROR ( CL_INVALID_VALUE, "Unknown param_name: %u\n",
                             param_name);
     }
 }
@@ -1040,7 +1040,7 @@ pocl_basic_create_kernel (cl_device_id device,
       }
 #endif
     default:
-      POCL_RETURN_ERROR_ON (1, CL_INVALID_DBK_ID,
+      POCL_RETURN_ERROR ( CL_INVALID_DBK_ID,
                             "pocl_basic_create_kernel called with "
                             "unknown/unimplemented "
                             "DBK kernel.\n");
@@ -1092,7 +1092,7 @@ pocl_basic_free_kernel (cl_device_id device,
       }
 #endif
     default:
-      POCL_RETURN_ERROR_ON (1, CL_INVALID_DBK_ID,
+      POCL_RETURN_ERROR ( CL_INVALID_DBK_ID,
                             "pocl_basic_free_kernel called with "
                             "unknown/unimplemented DBK kernel.\n");
     }

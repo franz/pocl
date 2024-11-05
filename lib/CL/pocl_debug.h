@@ -497,6 +497,16 @@ POCL_EXPORT
 
 #endif
 
+#define POCL_RETURN_ERROR(err_code, ...)                                    \
+    POCL_MSG_ERR2(#err_code, __VA_ARGS__); return err_code; \
+/*
+   do { \
+  } while (0)
+*/
+
+#define POCL_GOTO_ERROR(err_code, ...)                                    \
+    POCL_MSG_ERR2(#err_code, __VA_ARGS__); errcode = err_code; goto err_code
+
 
 #define POCL_GOTO_ERROR_ON(cond, err_code, ...)                             \
   do                                                                        \
@@ -511,8 +521,7 @@ POCL_EXPORT
   while (0)
 
 #define POCL_RETURN_ERROR_ON(cond, err_code, ...)                           \
-  do                                                                        \
-    {                                                                       \
+  do {  \
       if (cond)                                                             \
         {                                                                   \
             POCL_MSG_ERR2(#err_code, __VA_ARGS__);                          \

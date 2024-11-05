@@ -48,7 +48,7 @@ pocl_check_tensor_layout (cl_uint rank,
         mapped to the allocation. Perhaps, we could support this
         case, if we extend the clGetMemObjectInfo() to return the
         datalayout the driver picked (and wants to expose)? */
-      POCL_RETURN_ERROR_ON (1, CL_INVALID_TENSOR_LAYOUT,
+      POCL_RETURN_ERROR ( CL_INVALID_TENSOR_LAYOUT,
                             "NULL layout currently unsupported\n");
     }
 
@@ -142,7 +142,7 @@ pocl_check_tensor_desc (const cl_tensor_desc *tdesc)
         case CL_TENSOR_PROPERTY_MUTABLE_LAYOUT:
           break;
         default:
-          POCL_RETURN_ERROR_ON (1, CL_INVALID_TENSOR_PROPERTY,
+          POCL_RETURN_ERROR ( CL_INVALID_TENSOR_PROPERTY,
                                 "Unknown property %" PRIu64 "\n", *P);
         }
       ++P;
