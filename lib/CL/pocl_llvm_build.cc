@@ -312,6 +312,9 @@ int pocl_llvm_build_program(cl_program program,
   ss << "-I. ";
   // required for clGetKernelArgInfo()
   ss << "-cl-kernel-arg-info ";
+  // always disable optimization at Clang stage. Will be optimized
+  // if necessary in parallel.bc stage.
+  ss << "-cl-opt-disable -O0 ";
 
 #if (LLVM_MAJOR == 15) || (LLVM_MAJOR == 16)
 #ifdef LLVM_OPAQUE_POINTERS

@@ -267,13 +267,19 @@ bool WorkgroupImpl::runOnModule(Module &M, llvm::FunctionAnalysisManager &FAM) {
   // extra printf arguments.
   FunctionMapping PrintfCache;
 
-  for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
-    Function &OrigKernel = *i;
-    if (!isKernelToProcess(OrigKernel)) {
-      OrigKernel.removeFnAttr(Attribute::NoInline);
-      OrigKernel.removeFnAttr(Attribute::OptimizeNone);
+  // Remove the OptNone&NoInline keywords from all functions;
+  for (Module::iterator It = M.begin(), e = M.end(); It != e; ++It) {
+    Function &F = *It;
+    if (!isKernelToProcess(F)) {
+      markFunctionAlwaysInline(&F);
+      F.removeFnAttr(Attribute::AlwaysInline);
       continue;
     }
+  }
+
+  for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
+    Function &OrigKernel = *i;
+    if (!isKernelToProcess(OrigKernel)) continue;
     Function *L = createWrapper(&OrigKernel, PrintfCache);
     KernelsMap[&OrigKernel] = L;
     // always inline the Original Kernel into the workgroup launcher
