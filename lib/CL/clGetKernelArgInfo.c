@@ -44,7 +44,7 @@ POname(clGetKernelArgInfo)(cl_kernel      kernel ,
    * request it. Piglit tests this. */
   if (kernel->program->compiler_options)
     POCL_RETURN_ERROR_ON (
-        (!strstr (kernel->program->compiler_options, "cl-kernel-arg-info")),
+        (!kernel->program->parsed_options.cl_kernel_arg_info),
         CL_KERNEL_ARG_INFO_NOT_AVAILABLE,
         "argument information is not available!\n");
 
