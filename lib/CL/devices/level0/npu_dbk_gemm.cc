@@ -87,8 +87,8 @@ bool instantiateTemplateGEMM(const void* KernelAttrs,
 
   // TODO alpha, beta
 
-  const cl_dbk_attributes_khr_gemm *Attrs
-    = (const cl_dbk_attributes_khr_gemm *)KernelAttrs;
+  const cl_dbk_attributes_exp_gemm *Attrs
+    = (const cl_dbk_attributes_exp_gemm *)KernelAttrs;
   ReplaceMap["SHAPE_M"] = std::to_string(Attrs->a.shape[0]);
   ReplaceMap["SHAPE_K"] = std::to_string(Attrs->a.shape[1]);
   assert(Attrs->a.shape[1] == Attrs->b.shape[0]);

@@ -85,8 +85,8 @@ bool instantiateTemplateMATMUL(const void* KernelAttrs,
   ReplaceMapT ReplaceMap;
   cl_tensor_layout_ml *L = nullptr;
 
-  const cl_dbk_attributes_khr_matmul *Attrs
-    = (const cl_dbk_attributes_khr_matmul *)KernelAttrs;
+  const cl_dbk_attributes_exp_matmul *Attrs
+    = (const cl_dbk_attributes_exp_matmul *)KernelAttrs;
   ReplaceMap["SHAPE_M"] = std::to_string(Attrs->a.shape[0]);
   ReplaceMap["SHAPE_K"] = std::to_string(Attrs->a.shape[1]);
   assert(Attrs->a.shape[1] == Attrs->b.shape[0]);
