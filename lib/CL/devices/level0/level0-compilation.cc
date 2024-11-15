@@ -1097,6 +1097,7 @@ static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT64:
     case ZE_GRAPH_ARGUMENT_PRECISION_INT64:
       TotalSize *= sizeof(uint64_t);
+      break;
     case ZE_GRAPH_ARGUMENT_PRECISION_FP32:
     case ZE_GRAPH_ARGUMENT_PRECISION_INT32:
     case ZE_GRAPH_ARGUMENT_PRECISION_UINT32:
@@ -1169,7 +1170,7 @@ static const Level0Model Level0GraphModels[NumLevel0GraphModels] = {
   },
   Level0Model{
     .Name = "khr_gemm",
-    .DBK_ID = POCL_CDBI_DBK_KHR_GEMM,
+    .DBK_ID = POCL_CDBI_DBK_EXP_GEMM,
     .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
     .NGraphXml = "",
     .NGraphBin = "",
@@ -1178,7 +1179,7 @@ static const Level0Model Level0GraphModels[NumLevel0GraphModels] = {
   },
   Level0Model{
     .Name = "khr_matmul",
-    .DBK_ID = POCL_CDBI_DBK_KHR_MATMUL,
+    .DBK_ID = POCL_CDBI_DBK_EXP_MATMUL,
     .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
     .NGraphXml = "",
     .NGraphBin = "",
