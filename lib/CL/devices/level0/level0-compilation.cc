@@ -1188,35 +1188,24 @@ static void getArgTypeAndSize(ze_graph_argument_properties_t &graphArgProps,
 
 constexpr unsigned NumLevel0GraphModels = 3;
 static const Level0Model Level0GraphModels[NumLevel0GraphModels] = {
-    Level0Model{
-        /* .Name = */ "pocl.googlenet.v1.fp32",
-        /* .DBK_ID = */ 0,
-        /* .Format = */ ZE_GRAPH_FORMAT_NGRAPH_LITE,
-        /* .NativeBin = */ "",
-        /* .NativeShaveBin = */ "",
-        /* .NGraphXml = */ "googlenet-v1.xml",
-        /* .NGraphBin = */ "googlenet-v1.bin",
-        /* .BuildFlags = */ R"RAW(--inputs_precisions="data:U8" --inputs_layouts="data:NCHW"  --outputs_precisions="dot:FP16" --outputs_layouts="dot:NC" --config NPU_PLATFORM="3720" LOG_LEVEL="LOG_DEBUG")RAW",
-        /* .intantiateModel = */ nullptr
-    },
-    Level0Model{/* .Name = */ "gemm_exp",
-                /* .DBK_ID = */ CL_DBK_GEMM_EXP,
-                /* .Format = */ ZE_GRAPH_FORMAT_NGRAPH_LITE,
-                /* .NativeBin = */ "",
-                /* .NativeShaveBin = */ "",
-                /* .NGraphXml = */ "",
-                /* .NGraphBin = */ "",
-                /* .BuildFlags = */ "",
-                /* .instantiateModel = */ instantiateTemplateGEMM},
-    Level0Model{/* .Name = */ "matmul_exp",
-                /* .DBK_ID = */ CL_DBK_MATMUL_EXP,
-                /* .Format = */ ZE_GRAPH_FORMAT_NGRAPH_LITE,
-                /* .NativeBin = */ "",
-                /* .NativeShaveBin = */ "",
-                /* .NGraphXml = */ "",
-                /* .NGraphBin = */ "",
-                /* .BuildFlags = */ "",
-                /* .instantiateModel = */ instantiateTemplateMATMUL},
+  Level0Model{
+    .Name = "khr_gemm",
+    .DBK_ID = POCL_CDBI_DBK_EXP_GEMM,
+    .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
+    .NGraphXml = "",
+    .NGraphBin = "",
+    .BuildFlags = "",
+    .instantiateModel = instantiateTemplateGEMM
+  },
+  Level0Model{
+    .Name = "khr_matmul",
+    .DBK_ID = POCL_CDBI_DBK_EXP_MATMUL,
+    .Format = ZE_GRAPH_FORMAT_NGRAPH_LITE,
+    .NGraphXml = "",
+    .NGraphBin = "",
+    .BuildFlags = "",
+    .instantiateModel = instantiateTemplateMATMUL
+  },
 };
 
 // returns semicolon separated list of recognized models (TODO: excluding DBKs
