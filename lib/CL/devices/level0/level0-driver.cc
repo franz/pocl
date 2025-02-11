@@ -2186,17 +2186,30 @@ ze_event_handle_t Level0EventPool::getEvent() {
   return AvailableEvents[LastIdx++];
 }
 
-bool Level0Device::setupDeviceProperties(bool HasIPVersionExt) {
+bool Level0Device::setupDeviceProperties(bool HasIPVersionExt,
+                                         bool HasMutabClistExt) {
   ze_result_t Res = ZE_RESULT_SUCCESS;
 
   DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES_1_2;
   DeviceProperties.pNext = nullptr;
   DeviceIPVersion = 0;
+  DeviceMutableCommandFlags = 0;
   ze_device_ip_version_ext_t DeviceIPVersionExt{};
   if (HasIPVersionExt) {
     DeviceProperties.pNext = &DeviceIPVersionExt;
     DeviceIPVersionExt.stype = ZE_STRUCTURE_TYPE_DEVICE_IP_VERSION_EXT;
     DeviceIPVersionExt.pNext = nullptr;
+  }
+  // Discover mutable command list properties
+  ze_mutable_command_list_exp_properties_t MutableCmdListProps = {
+      ZE_STRUCTURE_TYPE_MUTABLE_COMMAND_LIST_EXP_PROPERTIES,
+      nullptr,
+      0,                                     // mutableCommandListFlags
+      0                                      // mutableCommandFlags
+  };
+  if (HasMutabClistExt) {
+    MutableCmdListProps.pNext = DeviceProperties.pNext;
+    DeviceProperties.pNext = &MutableCmdListProps;
   }
 
   Res = zeDeviceGetProperties(DeviceHandle, &DeviceProperties);
@@ -2205,7 +2218,10 @@ bool Level0Device::setupDeviceProperties(bool HasIPVersionExt) {
     return false;
   }
 
-  DeviceIPVersion = DeviceIPVersionExt.ipVersion;
+  if (HasMutabClistExt)
+    DeviceMutableCommandFlags = MutableCmdListProps.mutableCommandFlags;
+  if (HasIPVersionExt)
+    DeviceIPVersion = DeviceIPVersionExt.ipVersion;
   // deviceProperties
   switch (DeviceProperties.type) {
   case ZE_DEVICE_TYPE_CPU:
@@ -2885,10 +2901,11 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
   assert(ContextHandle);
   HasGOffsets = Drv->hasExtension("ZE_experimental_global_offset");
   HasCompression = Drv->hasExtension("ZE_extension_memory_compression_hints");
+  HasMutableCmdlists = Drv->hasExtension("ZE_experimental_mutable_command_list");
   bool HasIPVerExt = Drv->hasExtension("ZE_extension_device_ip_version");
 
   // both of these are mandatory, the rest are optional
-  if (!setupDeviceProperties(HasIPVerExt)) {
+  if (!setupDeviceProperties(HasIPVerExt, HasMutableCmdlists)) {
     return;
   }
   if (!setupQueueGroupProperties()) {
@@ -3003,6 +3020,27 @@ Level0Device::Level0Device(Level0Driver *Drv, ze_device_handle_t DeviceH,
 
   if (Drv->hasExtension("ZE_extension_linkonce_odr")) {
     Extensions.append(" cl_khr_spirv_linkonce_odr");
+  }
+
+  /*
+ |    LEVEL0 |  Level0 extension: ZE_experimental_immediate_command_list_append
+ |    LEVEL0 |  Level0 extension: ZE_experimental_event_pool_counter_based
+ |    LEVEL0 |  Level0 extension: ZE_intel_experimental_command_list_memory_sync
+ |    LEVEL0 |  Level0 extension: ZEX_intel_experimental_event_sync_mode
+  */
+
+  // “ZE_experimental_mutable_command_list”
+  if (HasMutableCmdlists && DeviceMutableCommandFlags) {
+    Extensions.append(" cl_khr_command_buffer_mutable_dispatch");
+    ClDev->cmdbuf_mutable_dispatch_capabilities = 0;
+    if (DeviceMutableCommandFlags & ZE_MUTABLE_COMMAND_EXP_FLAG_KERNEL_ARGUMENTS)
+        ClDev->cmdbuf_mutable_dispatch_capabilities |= CL_MUTABLE_DISPATCH_ARGUMENTS_KHR;
+    if (DeviceMutableCommandFlags & ZE_MUTABLE_COMMAND_EXP_FLAG_GROUP_COUNT)
+        ClDev->cmdbuf_mutable_dispatch_capabilities |= CL_MUTABLE_DISPATCH_GLOBAL_SIZE_KHR;
+    if (DeviceMutableCommandFlags & ZE_MUTABLE_COMMAND_EXP_FLAG_GROUP_SIZE)
+        ClDev->cmdbuf_mutable_dispatch_capabilities |= CL_MUTABLE_DISPATCH_LOCAL_SIZE_KHR;
+    if (DeviceMutableCommandFlags & ZE_MUTABLE_COMMAND_EXP_FLAG_GLOBAL_OFFSET)
+        ClDev->cmdbuf_mutable_dispatch_capabilities |= CL_MUTABLE_DISPATCH_GLOBAL_OFFSET_KHR;
   }
 
   if (Drv->hasExtension("ZE_extension_pci_properties") && setupPCIAddress()) {

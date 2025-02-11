@@ -494,6 +494,7 @@ private:
   unsigned NumBuiltinKernels = 0;
   // need to store for queries
   ze_device_properties_t DeviceProperties;
+  ze_mutable_command_exp_flags_t DeviceMutableCommandFlags;
   uint32_t DeviceIPVersion;
 
   Level0Program *MemfillProgram;
@@ -512,6 +513,7 @@ private:
   bool NeedsRelaxedLimits = false;
   bool HasGOffsets = false;
   bool HasCompression = false;
+  bool HasMutableCmdlists = false;
   bool HasDMABufExport = false;
   bool HasDMABufImport = false;
   uint32_t MaxCommandQueuePriority = 0;
@@ -535,7 +537,7 @@ private:
   bool initHelperKernels();
   void destroyHelperKernels();
 
-  bool setupDeviceProperties(bool HasIPVersionExt);
+  bool setupDeviceProperties(bool HasIPVersionExt, bool HasMutabClistExt);
   bool setupComputeProperties();
   bool setupModuleProperties(bool &SupportsInt64Atomics, bool HasFloatAtomics, std::string &Features);
   bool setupQueueGroupProperties();
