@@ -1005,6 +1005,14 @@ struct pocl_device_ops {
   cl_int (*create_finalized_command_buffer) (
       cl_device_id device, cl_command_buffer_khr command_buffer);
 
+  /* update a command buffer (must be finalized).
+   * Currently there is only one type of recognized config_type:
+   * CL_STRUCTURE_TYPE_MUTABLE_DISPATCH_CONFIG_KHR,
+   * therefore no point in passing the struct type */
+  cl_int (*update_finalized_command_buffer) (
+      cl_device_id device, cl_command_buffer_khr command_buffer,
+      cl_uint num_configs, const void **configs);
+
   cl_int (*free_command_buffer) (cl_device_id device,
                                  cl_command_buffer_khr command_buffer);
 

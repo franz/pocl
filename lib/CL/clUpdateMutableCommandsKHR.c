@@ -33,7 +33,6 @@ POname (clUpdateMutableCommandsKHR) (
   const void **configs)
 {
   cl_int errcode;
-
   POCL_RETURN_ERROR_COND ((!IS_CL_OBJECT_VALID (command_buffer)),
                           CL_INVALID_COMMAND_BUFFER_KHR);
 
@@ -44,53 +43,85 @@ POname (clUpdateMutableCommandsKHR) (
   POCL_RETURN_ERROR_COND ((command_buffer->is_mutable == CL_FALSE),
                           CL_INVALID_OPERATION);
 
+  POCL_RETURN_ERROR_COND ((num_configs == 0), CL_INVALID_VALUE);
+  POCL_RETURN_ERROR_COND ((configs == NULL), CL_INVALID_VALUE);
+
+  cl_device_id *devices = (cl_device_id *)alloca (num_configs * sizeof(cl_device_id));
+  const cl_mutable_dispatch_config_khr *cfg
+      = (const cl_mutable_dispatch_config_khr *)configs[0];
+  cl_device_id first_dev = NULL;
+  if (cfg->command->device)
+      first_dev = cfg->command->device;
+  else if (command_buffer->queues)
+      first_dev = command_buffer->queues[cfg->command->queue_idx]->device;
+  else
+      POCL_RETURN_ERROR_ON(1, CL_INVALID_COMMAND_BUFFER_KHR,
+                           "Command buffer has no assigned device\n");
+  cl_uint identical_devs = 0;
+
   for (cl_uint i = 0; i < num_configs; ++i)
     {
       POCL_RETURN_ERROR_COND (
         (config_types[i] != CL_STRUCTURE_TYPE_MUTABLE_DISPATCH_CONFIG_KHR),
         CL_INVALID_VALUE);
       POCL_RETURN_ERROR_COND ((configs[i] == NULL), CL_INVALID_VALUE);
+
+      const cl_mutable_dispatch_config_khr *cfg
+          = (const cl_mutable_dispatch_config_khr *)configs[i];
+      cl_device_id dev = NULL;
+      if (cfg->command->device)
+          dev = cfg->command->device;
+      else if (command_buffer->queues)
+          dev = command_buffer->queues[cfg->command->queue_idx]->device;
+      else
+          POCL_RETURN_ERROR_ON(1, CL_INVALID_COMMAND_BUFFER_KHR,
+                               "Command buffer has no assigned device\n");
+      devices[i] = dev;
+      if (dev == first_dev)
+          ++identical_devs;
+
+      cl_mutable_dispatch_fields_khr support
+          = dev ? dev->cmdbuf_mutable_dispatch_capabilities : 0;
+      POCL_RETURN_ERROR_COND (
+          (cfg->command->type != CL_COMMAND_NDRANGE_KERNEL), CL_INVALID_VALUE);
+      POCL_RETURN_ERROR_ON((support == 0), CL_INVALID_DEVICE,
+                           "The device does not support any mutable fields\n");
+
+      POCL_RETURN_ERROR_COND ((cfg->num_args > 0
+                              && ((support & CL_MUTABLE_DISPATCH_ARGUMENTS_KHR) == 0)),
+                             CL_INVALID_VALUE);
+      POCL_RETURN_ERROR_COND ((cfg->num_svm_args > 0
+                              && ((support & CL_MUTABLE_DISPATCH_ARGUMENTS_KHR) == 0)),
+                             CL_INVALID_VALUE);
+      POCL_RETURN_ERROR_COND ((cfg->num_exec_infos > 0
+                              && ((support & CL_MUTABLE_DISPATCH_EXEC_INFO_KHR) == 0)),
+                             CL_INVALID_VALUE);
+      POCL_RETURN_ERROR_COND ((cfg->global_work_offset != NULL
+                              && ((support & CL_MUTABLE_DISPATCH_GLOBAL_WORK_OFFSET_KHR) == 0)),
+                             CL_INVALID_VALUE);
+      POCL_RETURN_ERROR_COND ((cfg->global_work_size != NULL
+                              && ((support & CL_MUTABLE_DISPATCH_GLOBAL_WORK_SIZE_KHR) == 0)),
+                             CL_INVALID_VALUE);
+      POCL_RETURN_ERROR_COND ((cfg->local_work_size != NULL
+                              && ((support & CL_MUTABLE_DISPATCH_LOCAL_WORK_SIZE_KHR) == 0)),
+                             CL_INVALID_VALUE);
+
     }
+
+  if (identical_devs == num_configs && first_dev->ops->update_finalized_command_buffer)
+        return first_dev->ops->update_finalized_command_buffer(first_dev, command_buffer, num_configs, configs);
 
   for (cl_uint i = 0; i < num_configs; ++i)
     {
       const cl_mutable_dispatch_config_khr *cfg
         = (const cl_mutable_dispatch_config_khr *)configs[i];
-      cl_device_id dev = NULL;
-      if (cfg->command->device)
-        dev = cfg->command->device;
-      else if (command_buffer->queues)
-        dev = command_buffer->queues[cfg->command->queue_idx]->device;
-      else
-        POCL_RETURN_ERROR_ON(1, CL_INVALID_COMMAND_BUFFER_KHR,
-                             "Command buffer has no assigned device\n");
+      cl_device_id dev = devices[i];
 
-      cl_mutable_dispatch_fields_khr support
-        = dev ? dev->cmdbuf_mutable_dispatch_capabilities : 0;
-      POCL_RETURN_ERROR_COND (
-        (cfg->command->type != CL_COMMAND_NDRANGE_KERNEL), CL_INVALID_VALUE);
-      POCL_RETURN_ERROR_ON((support == 0), CL_INVALID_DEVICE,
-                           "The device does not support any mutable fields\n");
-
-      POCL_RETURN_ERROR_COND ((cfg->num_args > 0
-         && ((support & CL_MUTABLE_DISPATCH_ARGUMENTS_KHR) == 0)),
-        CL_INVALID_VALUE);
-      POCL_RETURN_ERROR_COND ((cfg->num_svm_args > 0
-         && ((support & CL_MUTABLE_DISPATCH_ARGUMENTS_KHR) == 0)),
-        CL_INVALID_VALUE);
-      POCL_RETURN_ERROR_COND ((cfg->num_exec_infos > 0
-         && ((support & CL_MUTABLE_DISPATCH_EXEC_INFO_KHR) == 0)),
-        CL_INVALID_VALUE);
-      POCL_RETURN_ERROR_COND ((cfg->global_work_offset != NULL
-         && ((support & CL_MUTABLE_DISPATCH_GLOBAL_WORK_OFFSET_KHR) == 0)),
-        CL_INVALID_VALUE);
-      POCL_RETURN_ERROR_COND ((cfg->global_work_size != NULL
-         && ((support & CL_MUTABLE_DISPATCH_GLOBAL_WORK_SIZE_KHR) == 0)),
-        CL_INVALID_VALUE);
-      POCL_RETURN_ERROR_COND ((cfg->local_work_size != NULL
-         && ((support & CL_MUTABLE_DISPATCH_LOCAL_WORK_SIZE_KHR) == 0)),
-        CL_INVALID_VALUE);
-
+      if (dev->ops->update_finalized_command_buffer) {
+        dev->ops->update_finalized_command_buffer (dev, command_buffer, 1, configs+i);
+        // TODO shall we skip the update of cfg->command->command.run ?
+        continue;
+      }
       cl_uint program_dev_i = cfg->command->program_device_i;
       cl_kernel kernel = cfg->command->command.run.kernel;
       cl_device_id realdev = pocl_real_dev (dev);

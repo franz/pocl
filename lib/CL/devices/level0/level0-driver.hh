@@ -495,6 +495,7 @@ private:
   // need to store for queries
   ze_device_properties_t DeviceProperties;
   ze_mutable_command_exp_flags_t DeviceMutableCommandFlags;
+  ze_mutable_command_list_exp_flags_t DeviceMutableCommandListFlags;
   uint32_t DeviceIPVersion;
 
   Level0Program *MemfillProgram;
