@@ -207,6 +207,8 @@
 
 #cmakedefine ENABLE_HEADER_BUNDLING
 
+#cmakedefine ENABLE_LEVEL0_OCLOC
+
 #endif
 
 
