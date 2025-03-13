@@ -62,6 +62,9 @@ using namespace SPIRVParser;
 #include "level0-compilation.hh"
 #include "level0-driver.hh"
 
+// Disabled for now
+#undef ENABLE_NPU
+
 using namespace pocl;
 
 static std::vector<Level0DriverUPtr> L0DriverInstances;
@@ -1199,6 +1202,9 @@ int pocl_level0_build_builtin(cl_program Program, cl_uint DeviceI) {
 int pocl_level0_init_queue(cl_device_id Dev, cl_command_queue Queue) {
   Level0Device *Device = (Level0Device *)Dev->data;
   assert(Device);
+  bool HiddenDefaultQ = (Queue->properties & CL_QUEUE_HIDDEN);
+  if (HiddenDefaultQ)
+    POCL_MSG_WARN("Creating hidden default queue: %p  |  %zu\n", Queue, Queue->id);
   bool Inorder = (Queue->properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) == 0;
   Level0CmdList *CList = Device->createCmdList(Queue->priority,
                                                false, // prefer throughput
@@ -1269,6 +1275,7 @@ void pocl_level0_flush(cl_device_id ClDev, cl_command_queue Queue) {
   // enqueue, flush, enqueue, flush, finish
   // ... because execution requires closing a list,
   // and AFAIK we can't append to a closed LZ Cmdlist
+    POCL_MSG_WARN("Flush called on Queue: %p | ID %zu\n", Queue, Queue->id);
 }
 
 void pocl_level0_submit(_cl_command_node *Node, cl_command_queue Queue) {
@@ -1291,6 +1298,8 @@ void pocl_level0_submit(_cl_command_node *Node, cl_command_queue Queue) {
           WaitIntEvents.push_back(WaitEv);
       }
   }
+  POCL_MSG_WARN ("LZ : submitting command %zu to Queue %p %zu | CmdList %p \n",
+                  Ev->id, Queue, Queue->id, QD->CmdList);
   pocl_update_event_submitted(Ev);
   int Res = QD->CmdList->appendEventToList(Ev, WaitIntEvents, WaitExtEvents);
   assert(Res == ZE_RESULT_SUCCESS);
