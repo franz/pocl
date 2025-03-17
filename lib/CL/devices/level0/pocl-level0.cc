@@ -641,7 +641,224 @@ int pocl_level0_build_source(cl_program Program, cl_uint DeviceI,
                          "This device cannot build from sources\n");
   }
 
-#if defined(ENABLE_LLVM) && !defined(ENABLE_LEVEL0_OCLOC)
+#ifdef ENABLE_LEVEL0_OCLOC
+    POCL_MSG_PRINT_LLVM("OCLOC: building from sources for device %d\n", DeviceI);
+
+    uint32_t numSources = 1;
+    const uint8_t *dataSources = reinterpret_cast<const uint8_t *>(Program->source);
+    uint64_t lenSources = strlen(Program->source) + 1;
+    assert (lenSources > 1);
+    const char *nameSources = "main.cl";
+
+    uint32_t numInputHeaders = NumInputHeaders;
+    std::vector<const uint8_t *> dataInputHeaders;
+    std::vector<uint64_t> lenInputHeaders;
+    std::vector<std::string> inputHeaderNames;
+    std::vector<const char *> nameInputHeaders;
+    for (cl_uint  i = 0; i < NumInputHeaders; ++i) {
+        dataInputHeaders.push_back((const uint8_t *)InputHeaders[i]->source);
+        lenInputHeaders.push_back(strlen(InputHeaders[i]->source));
+        std::string Name = "header_" + std::to_string(i) + ".h";
+        inputHeaderNames.push_back(Name);
+        nameInputHeaders.push_back(inputHeaderNames[i].c_str());
+    }
+    uint32_t numOutputs = 0;
+    uint8_t **dataOutputs = nullptr;
+    uint64_t *lenOutputs = nullptr;
+    char **nameOutputs = nullptr;
+
+    //std::stringstream ConvStream;
+    //ConvStream << std::setfill('0') << std::setw(sizeof(uint32_t)*2) << std::hex << Device->getIPVersion();
+    //std::string DevIParg(ConvStream.str());
+    std::string DevIParg = std::to_string(Device->getIPVersion());
+    POCL_MSG_PRINT_LLVM("OCLOC: Using device IP arg: %s\n", DevIParg.c_str());
+
+    char OclocCacheDir[POCL_MAX_PATHNAME_LENGTH] = {0};
+    pocl_cache_get_ocloc_cache_dir(OclocCacheDir);
+
+    char ProgramCacheDir[POCL_MAX_PATHNAME_LENGTH] = {0};
+    std::string SourcePlusOpts(Program->source);
+
+    std::stringstream ss;
+    std::string user_options;
+    if (Program->compiler_options) {
+        ss << Program->compiler_options;
+        user_options.append(Program->compiler_options);
+    }
+
+    /* TODO shared with pocl_llvm_build_program */
+    // required for clGetKernelArgInfo()
+    ss << "-cl-kernel-arg-info ";
+
+    if (Dev->image_support)
+        ss << "-D__IMAGE_SUPPORT__=1 ";
+    else {
+        // workaround for a bug in Clang. It unconditionally predefines this macro
+        // when compiling for SPIR or SPIRV target
+        ss << "-U__IMAGE_SUPPORT__ ";
+        ss << "-U__opencl_c_images ";
+        ss << "-U__opencl_c_read_write_images ";
+        ss << "-U__opencl_c_3d_image_writes ";
+        // required for SPIR-V
+        ss << "-D__undef___opencl_c_read_write_images ";
+    }
+    if (Dev->wg_collective_func_support == CL_FALSE)
+        ss << "-D__undef___opencl_c_work_group_collective_functions ";
+    if ((Dev->atomic_memory_capabilities &
+         CL_DEVICE_ATOMIC_SCOPE_ALL_DEVICES) == 0)
+        ss << "-D__undef___opencl_c_atomic_scope_all_devices ";
+
+    if (user_options.find("-cl-std=") == std::string::npos)
+        ss << "-cl-std=" << Dev->opencl_c_version_as_opt << " ";
+
+    std::string Temp(ss.str());
+    size_t pos = Temp.find("-cl-std=CL");
+    pos += 10;
+    int cl_std_major = Temp.c_str()[pos] - '0';
+    int cl_std_minor = Temp.c_str()[pos+2] - '0';
+    int cl_std_i = cl_std_major * 100 + cl_std_minor * 10;
+    ss << "-D__OPENCL_C_VERSION__=" << cl_std_i << " ";
+
+    std::string exts = Dev->extensions;
+    if (cl_std_major >= 3 && Dev->features != nullptr) {
+        exts += ' ';
+        exts += Dev->features;
+    }
+    std::string extensions(exts);
+
+    std::string cl_ext;
+    if (extensions.size() > 0) {
+        size_t e_start = 0, e_end = 0;
+        while (e_end < std::string::npos) {
+            while (e_start < extensions.size() && std::isspace(extensions[e_start]))
+                ++e_start;
+            if (e_start >= extensions.size())
+                break;
+            e_end = extensions.find(' ', e_start);
+            if (e_end > extensions.size())
+                e_end = extensions.size();
+            std::string tok = extensions.substr(e_start, e_end-e_start);
+            e_start = e_end + 1;
+            ss << "-D" << tok << "=1 ";
+            cl_ext += "+";
+            cl_ext += tok;
+            cl_ext += ",";
+        }
+        if (Dev->image_support == CL_FALSE)  {
+            cl_ext += "-__opencl_c_images,";
+            cl_ext += "-__opencl_c_read_write_images,";
+            cl_ext += "-__opencl_c_3d_image_writes,";
+        }
+    }
+    // if (!cl_ext.empty()) {
+    //     cl_ext.back() = ' '; // replace last "," with space
+    //     ss << "-cl-ext=-all," << cl_ext;
+    // }
+    std::string FinalOptions(ss.str());
+    POCL_MSG_WARN("@@@@@@@@ FINAL OPTIONS: \n%s\n\n", FinalOptions.c_str());
+
+    SourcePlusOpts.append(FinalOptions);
+    for (cl_uint  i = 0; i < NumInputHeaders; ++i) {
+        SourcePlusOpts.append(InputHeaders[i]->source);
+    }
+    pocl_cache_create_program_cachedir(Program, DeviceI,
+                                       SourcePlusOpts.c_str(),
+                                       SourcePlusOpts.size(),
+                                       ProgramCacheDir);
+    char* Location = strstr(ProgramCacheDir, "/program.bc");
+    assert(Location);
+    *Location = 0;
+
+    const char *Args[] = {
+        "compile",
+        // "-q",
+        "-v",
+        "-spv_only",
+        "-device",
+        DevIParg.c_str(),
+        "-file",
+        nameSources,
+        "-allow_caching",
+        "-cache_dir",
+        OclocCacheDir,
+        "-options",
+        FinalOptions.c_str(),
+        // "-out_dir",
+        // ProgramCacheDir,
+    };
+    unsigned int numArgs = 12;
+
+    int Errcode = oclocInvoke(numArgs, Args,
+                              numSources, &dataSources, &lenSources, &nameSources,
+                              numInputHeaders, dataInputHeaders.data(), lenInputHeaders.data(), nameInputHeaders.data(),
+                              &numOutputs, &dataOutputs, &lenOutputs, &nameOutputs);
+
+    unsigned char *spirV = nullptr;
+    size_t spirVlen = 0;
+    const char *log = nullptr;
+    size_t logLen = 0;
+    for (unsigned int i = 0; i < numOutputs; ++i) {
+        std::string spvExtension = ".spv";
+        std::string logFileName = "stdout.log";
+        auto nameLen = strlen(nameOutputs[i]);
+        if ((nameLen > spvExtension.size()) && (strstr(&nameOutputs[i][nameLen - spvExtension.size()], spvExtension.c_str()) != nullptr)) {
+            spirV = dataOutputs[i];
+            spirVlen = lenOutputs[i];
+            dataOutputs[i] = nullptr;
+            lenOutputs[i] = 0;
+        } else if ((nameLen >= logFileName.size()) && (strstr(nameOutputs[i], logFileName.c_str()) != nullptr)) {
+            log = reinterpret_cast<const char *>(dataOutputs[i]);
+            logLen = lenOutputs[i];
+            dataOutputs[i] = nullptr;
+            lenOutputs[i] = 0;
+            break;
+        } else {
+            POCL_MSG_WARN("Found UNKNOWN compiler output: %s\n", nameOutputs[i]);
+        }
+    }
+    // TODO check if this is OK
+    oclocFreeOutput(&numOutputs, &dataOutputs, &lenOutputs, &nameOutputs);
+
+    if (logLen > 0) {
+        strncpy(Program->main_build_log, log, MAIN_PROGRAM_LOG_SIZE);
+    }
+    if (Errcode != 0) {
+        if (logLen == 0) {
+            std::string Log = "Ocloc compilation failed: " + std::to_string(Errcode) + "\n";
+            strncpy(Program->main_build_log, Log.c_str(), MAIN_PROGRAM_LOG_SIZE);
+        }
+        return CL_BUILD_PROGRAM_FAILURE;
+    }
+    Program->program_il = reinterpret_cast<char *>(spirV);
+    Program->program_il_size = spirVlen;
+    assert(Program->program_il != nullptr);
+    assert(Program->program_il_size > 0);
+
+    char *OutputBinary = nullptr;
+    uint64_t OutputBinarySize = 0;
+    Err = pocl_convert_spirv_to_bitcode(
+        nullptr, Program->program_il, Program->program_il_size,
+        Program, DeviceI, Dev->supported_spirv_extensions, nullptr,
+        &OutputBinary, &OutputBinarySize);
+    POCL_RETURN_ERROR_ON((Err != 0), CL_BUILD_PROGRAM_FAILURE,
+                         "failed to convert SPIRV -> BC\n");
+    Program->binaries[DeviceI] = (unsigned char *)OutputBinary;
+    Program->binary_sizes[DeviceI] = OutputBinarySize;
+
+    assert(Program->binaries[DeviceI] != nullptr);
+    assert(Program->binary_sizes[DeviceI] != 0);
+    pocl_llvm_read_program_llvm_irs(Program, DeviceI, nullptr);
+
+    if (LinkProgram != 0) {
+        pocl_llvm_recalculate_gvar_sizes(Program, DeviceI);
+        return Device->createSpirvProgram(Program, DeviceI);
+    } else {
+        // only final (linked) programs have  ZE module
+        assert(Program->data[DeviceI] == nullptr);
+        return CL_SUCCESS;
+    }
+
+#elif defined(ENABLE_LLVM)
   POCL_MSG_PRINT_LLVM("building from sources for device %d\n", DeviceI);
 
   // last arg is 0 because we never link with Clang, let the spirv-link and
@@ -699,145 +916,6 @@ int pocl_level0_build_source(cl_program Program, cl_uint DeviceI,
     // only final (linked) programs have  ZE module
     assert(Program->data[DeviceI] == nullptr);
     return CL_SUCCESS;
-  }
-
-#elif defined(ENABLE_LEVEL0_OCLOC)
-  POCL_MSG_PRINT_LLVM("OCLOC: building from sources for device %d\n", DeviceI);
-
-  uint32_t numSources = 1;
-  const uint8_t *dataSources = reinterpret_cast<const uint8_t *>(Program->source);
-  uint64_t lenSources = strlen(Program->source) + 1;
-  const char *nameSources = "main.cl";
-
-  uint32_t numInputHeaders = NumInputHeaders;
-  std::vector<const uint8_t *> dataInputHeaders;
-  std::vector<uint64_t> lenInputHeaders;
-  std::vector<std::string> inputHeaderNames;
-  std::vector<const char *> nameInputHeaders;
-  for (cl_uint  i = 0; i < NumInputHeaders; ++i) {
-      dataInputHeaders.push_back((const uint8_t *)InputHeaders[i]->source);
-      lenInputHeaders.push_back(strlen(InputHeaders[i]->source));
-      std::string Name = "header_" + std::to_string(i) + ".h";
-      inputHeaderNames.push_back(Name);
-      nameInputHeaders.push_back(inputHeaderNames[i].c_str());
-  }
-  uint32_t numOutputs = 0;
-  uint8_t **dataOutputs = nullptr;
-  uint64_t *lenOutputs = nullptr;
-  char **nameOutputs = nullptr;
-
-  //std::stringstream ConvStream;
-  //ConvStream << std::setfill('0') << std::setw(sizeof(uint32_t)*2) << std::hex << Device->getIPVersion();
-  //std::string DevIParg(ConvStream.str());
-  std::string DevIParg = std::to_string(Device->getIPVersion());
-  POCL_MSG_PRINT_LLVM("OCLOC: Using device IP arg: %s\n", DevIParg.c_str());
-
-  char OclocCacheDir[POCL_MAX_PATHNAME_LENGTH] = {0};
-  pocl_cache_get_ocloc_cache_dir(OclocCacheDir);
-
-  char ProgramCacheDir[POCL_MAX_PATHNAME_LENGTH] = {0};
-  std::string SourcePlusOpts(Program->source);
-  SourcePlusOpts.append(Program->compiler_options);
-  for (cl_uint  i = 0; i < NumInputHeaders; ++i) {
-      SourcePlusOpts.append(InputHeaders[i]->source);
-  }
-  pocl_cache_create_program_cachedir(Program, DeviceI,
-                                     SourcePlusOpts.c_str(),
-                                     SourcePlusOpts.size(),
-                                     ProgramCacheDir);
-  char* Location = strstr(ProgramCacheDir, "/program.bc");
-  assert(Location);
-  *Location = 0;
-
-  const char *Args[] = {
-      "compile",
-      "-q",
-      "-spv_only",
-      "-device",
-      DevIParg.c_str(),
-      "-file",
-      nameSources,
-      "-allow_caching",
-      "-cache_dir",
-      OclocCacheDir,
-      nullptr, // "-options",
-      nullptr // Program->compiler_options,
-      // "-out_dir",
-      // ProgramCacheDir,
-  };
-  unsigned int numArgs = 10;
-  if (Program->compiler_options) {
-      Args[10] = "-options";
-      Args[11] = Program->compiler_options;
-      numArgs = 12;
-  }
-
-  int Errcode = oclocInvoke(numArgs, Args,
-                            numSources, &dataSources, &lenSources, &nameSources,
-                            numInputHeaders, dataInputHeaders.data(), lenInputHeaders.data(), nameInputHeaders.data(),
-                            &numOutputs, &dataOutputs, &lenOutputs, &nameOutputs);
-
-  unsigned char *spirV = nullptr;
-  size_t spirVlen = 0;
-  const char *log = nullptr;
-  size_t logLen = 0;
-  for (unsigned int i = 0; i < numOutputs; ++i) {
-      std::string spvExtension = ".spv";
-      std::string logFileName = "stdout.log";
-      auto nameLen = strlen(nameOutputs[i]);
-      if ((nameLen > spvExtension.size()) && (strstr(&nameOutputs[i][nameLen - spvExtension.size()], spvExtension.c_str()) != nullptr)) {
-          spirV = dataOutputs[i];
-          spirVlen = lenOutputs[i];
-          dataOutputs[i] = nullptr;
-          lenOutputs[i] = 0;
-      } else if ((nameLen >= logFileName.size()) && (strstr(nameOutputs[i], logFileName.c_str()) != nullptr)) {
-          log = reinterpret_cast<const char *>(dataOutputs[i]);
-          logLen = lenOutputs[i];
-          dataOutputs[i] = nullptr;
-          lenOutputs[i] = 0;
-          break;
-      }
-  }
-  // TODO check if this is OK
-  oclocFreeOutput(&numOutputs, &dataOutputs, &lenOutputs, &nameOutputs);
-
-  if (logLen > 0) {
-      strncpy(Program->main_build_log, log, MAIN_PROGRAM_LOG_SIZE);
-  }
-  if (Errcode != 0) {
-      if (logLen == 0) {
-        std::string Log = "Ocloc compilation failed: " + std::to_string(Errcode) + "\n";
-        strncpy(Program->main_build_log, Log.c_str(), MAIN_PROGRAM_LOG_SIZE);
-      }
-      return CL_BUILD_PROGRAM_FAILURE;
-  }
-  Program->program_il = reinterpret_cast<char *>(spirV);
-  Program->program_il_size = spirVlen;
-  assert(Program->program_il != nullptr);
-  assert(Program->program_il_size > 0);
-
-  char *OutputBinary = nullptr;
-  uint64_t OutputBinarySize = 0;
-  Err = pocl_convert_spirv_to_bitcode(
-      nullptr, Program->program_il, Program->program_il_size,
-      Program, DeviceI, Dev->supported_spirv_extensions, nullptr,
-      &OutputBinary, &OutputBinarySize);
-  POCL_RETURN_ERROR_ON((Err != 0), CL_BUILD_PROGRAM_FAILURE,
-                       "failed to convert SPIRV -> BC\n");
-  Program->binaries[DeviceI] = (unsigned char *)OutputBinary;
-  Program->binary_sizes[DeviceI] = OutputBinarySize;
-
-  assert(Program->binaries[DeviceI] != nullptr);
-  assert(Program->binary_sizes[DeviceI] != 0);
-  pocl_llvm_read_program_llvm_irs(Program, DeviceI, nullptr);
-
-  if (LinkProgram != 0) {
-      pocl_llvm_recalculate_gvar_sizes(Program, DeviceI);
-      return Device->createSpirvProgram(Program, DeviceI);
-  } else {
-      // only final (linked) programs have  ZE module
-      assert(Program->data[DeviceI] == nullptr);
-      return CL_SUCCESS;
   }
 
 #else
