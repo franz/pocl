@@ -137,7 +137,7 @@ Known Bugs/Issues in OpenCL Implementations
   compilation/parsing step, because without argument metadata
   it's impossible to tell if an argument to clSetKernelArg is a pointer or an integer.
 
-.. _remote-how-to-build-label:
+.. _remote-how-to-build:
 
 How to Build
 -------------
