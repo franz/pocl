@@ -2137,7 +2137,6 @@ Level0CmdQueue *Level0QueueGroup::createQueue(ze_command_queue_flags_t Flags,
   ze_result_t ZeRes = ZE_RESULT_SUCCESS;
   ze_command_queue_handle_t QueueH = nullptr;
 
-  LastUsedIndex = (LastUsedIndex + 1) % Count;
   ze_command_queue_desc_t cmdQueueDesc = {
                                           ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                           nullptr,
@@ -2146,6 +2145,8 @@ Level0CmdQueue *Level0QueueGroup::createQueue(ze_command_queue_flags_t Flags,
                                           Flags, // flags
                                           ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
                                           Priority};
+
+  LastUsedIndex = (LastUsedIndex + 1) % Count;
 
   ZeRes = zeCommandQueueCreate(ContextH, DeviceH, &cmdQueueDesc, &QueueH);
   LEVEL0_CHECK_RET(nullptr, ZeRes);
@@ -2159,7 +2160,7 @@ Level0CmdQueue *Level0QueueGroup::createQueue(ze_command_queue_flags_t Flags,
 Level0CmdList *Level0QueueGroup::createImmCmdList(ze_command_queue_flags_t QueueFlags,
                                                   ze_command_queue_priority_t Priority) {
     ze_result_t ZeRes = ZE_RESULT_SUCCESS;
-    LastUsedIndex = (LastUsedIndex + 1) % Count;
+
     ze_command_queue_desc_t cmdQueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC,
                                             nullptr,
                                             Ordinal,
@@ -2168,6 +2169,7 @@ Level0CmdList *Level0QueueGroup::createImmCmdList(ze_command_queue_flags_t Queue
                                             ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
                                             Priority};
 
+    LastUsedIndex = (LastUsedIndex + 1) % Count;
     ze_command_list_handle_t CmdListH = nullptr;
 
     Level0CmdQueue *UpQ = createQueue(QueueFlags, Priority);
@@ -2750,17 +2752,17 @@ bool Level0Device::setupQueueGroupProperties() {
                        ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) != 0);
     bool IsCopy = ((QGroupProps[i].flags &
                     ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) != 0);
-    if (IsCompute && IsCopy) {
+    if (IsCompute && IsCopy && UniversalQueueOrd == UINT32_MAX) {
       UniversalQueueOrd = i;
       NumUniversalQueues = QGroupProps[i].numQueues;
     }
 
-    if (IsCompute && !IsCopy) {
+    if (IsCompute && !IsCopy && ComputeQueueOrd == UINT32_MAX) {
       ComputeQueueOrd = i;
       NumComputeQueues = QGroupProps[i].numQueues;
     }
 
-    if (!IsCompute && IsCopy) {
+    if (!IsCompute && IsCopy && CopyQueueOrd == UINT32_MAX) {
       CopyQueueOrd = i;
       NumCopyQueues = QGroupProps[i].numQueues;
     }
