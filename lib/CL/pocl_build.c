@@ -330,12 +330,6 @@ process_options (const char *options,
                 {
                   parsed->cl_intel_no_prera_scheduling = 1;
                 };
-
-              APPEND_TO_OPTION_BUILD_LOG (
-                  "This build option is not yet supported by clang: %s\n",
-                  token);
-              token = strtok_r (NULL, " ", &saveptr);
-              continue;
             }
           else
             {
