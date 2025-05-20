@@ -2640,9 +2640,21 @@ bool Level0Device::setupModuleProperties(bool &SupportsInt64Atomics,
   }
 
   KernelUUID = ModuleProperties.nativeKernelSupported;
+  // TODO these seem not reported properly by the LZ runtime
   SupportsDP4A = (ModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_DP4A) > 0;
-  // TODO this seems not reported
-  SupportsDPAS = SupportsDP4A; // (ModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_DPAS) > 0;
+#ifdef ZE_DEVICE_MODULE_FLAG_DPAS
+  SupportsDPAS = (ModuleProperties.flags & ZE_DEVICE_MODULE_FLAG_DPAS) > 0;
+#endif
+  // Intel UHD 770
+  if (DeviceIPVersion == 0x3008000) {
+    SupportsDP4A = true;
+  }
+  // Intel Arc B580
+  if (DeviceIPVersion == 0x5004000) {
+    SupportsDP4A = true;
+    SupportsDPAS = true;
+  }
+
   if (SupportsDP4A || SupportsDPAS) {
     // TODO how to get these properties from L0
     ClDev->dot_product_caps =
