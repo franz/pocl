@@ -148,7 +148,9 @@ pocl_usm_alloc (unsigned alloc_type, cl_context context, cl_device_id device,
   item->device = device;
   item->usm_properties.alloc_type = alloc_type;
   item->usm_properties.flags = flags;
-  DL_APPEND (context->raw_ptrs, item);
+  int inserted = pocl_raw_ptr_set_insert (context->raw_ptrs, item);
+  assert (inserted);
+  (void)inserted;
   POCL_UNLOCK_OBJ (context);
 
   /* Create a shadow cl_mem object for keeping track of the USM

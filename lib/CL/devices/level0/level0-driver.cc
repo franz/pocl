@@ -433,17 +433,11 @@ int Level0CmdList::appendEventToList(cl_event Ev,
       for (unsigned i = 0; i < cmd->svm_free.num_svm_pointers; i++) {
         void *ptr = cmd->svm_free.svm_pointers[i];
         POCL_LOCK_OBJ(Context);
-        pocl_raw_ptr *tmp = nullptr;
-        pocl_raw_ptr *item = nullptr;
-        DL_FOREACH_SAFE (Context->raw_ptrs, item, tmp) {
-          if (item->vm_ptr == ptr) {
-            DL_DELETE(Context->raw_ptrs, item);
-            break;
-          }
-        }
-        POCL_UNLOCK_OBJ(Context);
+        pocl_raw_ptr *item =
+            pocl_raw_ptr_set_lookup_with_vm_ptr(Context->raw_ptrs, ptr);
         assert(item);
-        POCL_MEM_FREE(item);
+        pocl_raw_ptr_set_erase(Context->raw_ptrs, item);
+        POCL_UNLOCK_OBJ(Context);
         POname(clReleaseContext)(Context);
         dev->ops->svm_free(dev, ptr);
       }

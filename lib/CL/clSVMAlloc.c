@@ -110,7 +110,9 @@ POname(clSVMAlloc)(cl_context context,
   /* Register the pointer as a SVM pointer so clCreateBuffer() detects it. */
   item->vm_ptr = ptr;
   item->size = size;
-  DL_APPEND (context->raw_ptrs, item);
+  int inserted = pocl_raw_ptr_set_insert (context->raw_ptrs, item);
+  assert (inserted);
+  (void)inserted;
   POCL_UNLOCK_OBJ (context);
 
   /* Create a shadow cl_mem object for keeping track of the SVM
