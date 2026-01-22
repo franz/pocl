@@ -44,6 +44,14 @@
       #include "helperneon32.h"
     #endif
 
+  #elif defined(__riscv_v) && defined(__riscv_zvl128b)
+    #define CONFIG 7
+    #include "helperrvv.h"
+
+  #elif defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && (__ARM_FEATURE_SVE_BITS >= 128)
+    #define CONFIG 1
+    #include "helpersve.h"
+
   #elif defined(__AVX2__)
     #define CONFIG 1
     #define ENABLE_AVX2
@@ -94,6 +102,14 @@
     #define ENABLE_AVX
     #include "helperavx.h"
 
+  #elif defined(__riscv_v) && defined(__riscv_zvl256b)
+    #define CONFIG 8
+    #include "helperrvv.h"
+
+  #elif defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && (__ARM_FEATURE_SVE_BITS >= 256)
+    #define CONFIG 8
+    #include "helpersve.h"
+
   #else
     #error 256bit vectors unavailable
   #endif
@@ -108,6 +124,15 @@
     #define CONFIG 1
     #define ENABLE_AVX512F
     #include "helperavx512f.h"
+
+  #elif defined(__riscv_v) && defined(__riscv_zvl512b)
+    #define CONFIG 9
+    #include "helperrvv.h"
+
+  #elif defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && (__ARM_FEATURE_SVE_BITS >= 512)
+    #define CONFIG 9
+    #include "helpersve.h"
+
   #else
     #error 512bit vectors unavailable
   #endif

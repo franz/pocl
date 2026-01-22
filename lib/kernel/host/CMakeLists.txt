@@ -443,7 +443,7 @@ endif()
 include("bitcode_rules")
 
 set(SLEEF_CL_KERNEL_DEPEND_HEADERS "")
-foreach(HEADER helperadvsimd.h   helperavx2.h     helperavx.h     helperpurec.h  helpersse2.h    misc.h helperavx2_128.h  helperavx512f.h  helperneon32.h  helpers.h      helpervecext.h)
+foreach(HEADER helperadvsimd.h   helperavx2.h     helperavx.h     helperpurec.h  helpersse2.h    misc.h helperavx2_128.h  helperavx512f.h  helperneon32.h  helpers.h      helpervecext.h  helperrvv.h  helpersve.h)
   list(APPEND SLEEF_CL_KERNEL_DEPEND_HEADERS "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/arch/${HEADER}")
 endforeach()
 list(APPEND SLEEF_CL_KERNEL_DEPEND_HEADERS "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/include/sleef_cl.h")
@@ -467,7 +467,6 @@ foreach(HEADER ep_log.h misc.h singlevec.h ocml_helpers.h sincos_helpers_fp32.h 
 endforeach()
 
 #=============================================================================
-
 
 if(ENABLE_SLEEF)
   set(KERNEL_SOURCES ${SOURCES_WITH_SLEEF})
@@ -600,11 +599,6 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
   if(HOST_CPU_ENABLE_CL_KHR_FP64)
     set(STR "#define SLEEF_DOUBLE_AVAILABLE\n")
     file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
-  endif()
-  # current SLEEF code does not have code for
-  # ARM32 NEON double vectors (if they even exist)
-  # TODO check properly!
-  if(NOT ARM32)
     set(STR "#define SLEEF_DOUBLE_VEC_AVAILABLE\n")
     file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
   endif()
@@ -650,7 +644,7 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
     if(${RES} EQUAL "0")
       compile_sleef_c_to_bc("v${VECSIZE}" "sleef/libm/sleefsimdsp.c"
                             "${VARIANT}" BC_FILE_LIST ${EXTRA_FLAGS})
-      if(NOT ARM32)
+      if(HOST_CPU_ENABLE_CL_KHR_FP64)
       compile_sleef_c_to_bc("v${VECSIZE}" "sleef/libm/sleefsimddp.c"
                             "${VARIANT}" BC_FILE_LIST ${EXTRA_FLAGS})
       endif()

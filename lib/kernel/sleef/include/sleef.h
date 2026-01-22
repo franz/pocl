@@ -32,6 +32,10 @@
 #include <arm_neon.h>
 #endif
 
+#if defined(__riscv_v)
+#include <riscv_vector.h>
+#endif
+
 /* Function/type attributes supported by Clang/SPIR */
 #if __has_attribute(__always_inline__)
 #define _CL_ALWAYSINLINE __attribute__ ((__always_inline__))
@@ -219,6 +223,8 @@ float Sleef_pownf_u10 (float, int);
 double Sleef_powr_u10 (double, double);
 float Sleef_powrf_u10 (float, float);
 
+/**************************************************************************/
+
 #ifdef __AVX512F__
 
 #define SLEEF_VEC_512_AVAILABLE
@@ -386,20 +392,182 @@ __m512 Sleef_powrf16_u10_intrin (__m512, __m512);
 
 #endif
 
+/**************************************************************************/
+
+#ifdef __riscv_zvl512b
+
+#define SLEEF_VEC_512_AVAILABLE
+
+#error TBD this is unfinished
+
+typedef vfloat32m8_t reg512f;
+typedef vfloat64m8_t reg512d;
+typedef vint64m8_t reg512i;
+
+#ifndef Sleef_vfloat64m8_t_2_DEFINED
+typedef struct
+{
+    vfloat64m8_t x, y;
+} Sleef_vfloat64m8_t_2;
+#define Sleef_vfloat64m8_t_2_DEFINED
+#endif
+typedef Sleef_vfloat64m8_t_2 Sleef_reg512d_2;
+
+vfloat64m8_t Sleef_sind8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_cosd8_u35_intrin (vfloat64m8_t);
+Sleef_vfloat64m8_t_2 Sleef_sincosd8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_tand8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_asind8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_acosd8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_atand8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_atan2d8_u35_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_logd8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_cbrtd8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_sind8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_cosd8_u10_intrin (vfloat64m8_t);
+Sleef_vfloat64m8_t_2 Sleef_sincosd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_tand8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_asind8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_acosd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_atand8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_atan2d8_u10_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_logd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_cbrtd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_expd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_powd8_u10_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_sinhd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_coshd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_tanhd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_asinhd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_acoshd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_atanhd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_exp2d8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_exp10d8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_expm1d8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_log10d8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_log2d8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_log1pd8_u10_intrin (vfloat64m8_t);
+Sleef_vfloat64m8_t_2 Sleef_sincospid8_u05_intrin (vfloat64m8_t);
+Sleef_vfloat64m8_t_2 Sleef_sincospid8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_sinpid8_u05_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_cospid8_u05_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_ldexpd8_intrin (vfloat64m8_t, __m256i);
+__m256i Sleef_ilogbd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_fmad8_intrin (vfloat64m8_t, vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_sqrtd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_sqrtd8_u05_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_sqrtd8_u35_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_hypotd8_u05_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_hypotd8_u35_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_fabsd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_copysignd8_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_fmaxd8_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_fmind8_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_fdimd8_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_truncd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_floord8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_ceild8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_roundd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_rintd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_nextafterd8_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat64m8_t Sleef_frfrexpd8_intrin (vfloat64m8_t);
+vint64m8_t Sleef_expfrexpd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_fmodd8_intrin (vfloat64m8_t, vfloat64m8_t);
+Sleef_vfloat64m8_t_2 Sleef_modfd8_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_lgammad8_u10_intrin (vfloat64m8_t);
+Sleef_vfloat64m8_t_2 Sleef_lgamma_rd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_tgammad8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_erfd8_u10_intrin (vfloat64m8_t);
+vfloat64m8_t Sleef_erfcd8_u15_intrin (vfloat64m8_t);
+
+#ifndef Sleef_vfloat32m8_t_2_DEFINED
+typedef struct
+{
+    vfloat32m8_t x, y;
+} Sleef_vfloat32m8_t_2;
+#define Sleef_vfloat32m8_t_2_DEFINED
+#endif
+typedef Sleef_vfloat32m8_t_2 Sleef_reg512f_2;
+
+vfloat32m8_t Sleef_sinf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cosf16_u35_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincosf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tanf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_asinf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_acosf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atanf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atan2f16_u35_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_logf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cbrtf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sinf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cosf16_u10_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincosf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tanf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_asinf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_acosf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atanf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atan2f16_u10_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_logf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cbrtf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_expf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_powf16_u10_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_sinhf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_coshf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tanhf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_asinhf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_acoshf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atanhf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_exp2f16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_exp10f16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_expm1f16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_log10f16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_log2f16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_log1pf16_u10_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincospif16_u05_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincospif16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sinpif16_u05_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cospif16_u05_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_ldexpf16_intrin (vfloat32m8_t, vint64m8_t);
+vint64m8_t Sleef_ilogbf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_fmaf16_intrin (vfloat32m8_t, vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_sqrtf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sqrtf16_u05_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sqrtf16_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_hypotf16_u05_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_hypotf16_u35_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fabsf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_copysignf16_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fmaxf16_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fminf16_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fdimf16_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_truncf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_floorf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_ceilf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_roundf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_rintf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_nextafterf16_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_frfrexpf16_intrin (vfloat32m8_t);
+vint64m8_t Sleef_expfrexpf16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_fmodf16_intrin (vfloat32m8_t, vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_modff16_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_lgammaf16_u10_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_lgamma_rf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tgammaf16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_erff16_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_erfcf16_u15_intrin (vfloat32m8_t);
+
+vfloat64m8_t Sleef_pownd8_u10_intrin (vfloat64m8_t, __m256i);
+vfloat32m8_t Sleef_pownf16_u10_intrin (vfloat32m8_t, vint64m8_t);
+vfloat64m8_t Sleef_powrd8_u10_intrin (vfloat64m8_t, vfloat64m8_t);
+vfloat32m8_t Sleef_powrf16_u10_intrin (vfloat32m8_t, vfloat32m8_t);
+
+#endif
+
+/**************************************************************************/
+
 #if defined(__AVX2__) || defined(__AVX__)
 
 #define SLEEF_VEC_256_AVAILABLE
-
-/*
-#ifndef __AVX2__
-
-typedef struct
-{
-  __m128i x, y;
-} __m256i;
-
-#endif
-*/
 
 typedef __m256 reg256f;
 typedef __m256d reg256d;
@@ -563,6 +731,179 @@ __m256d Sleef_powrd4_u10_intrin (__m256d, __m256d);
 __m256 Sleef_powrf8_u10_intrin (__m256, __m256);
 
 #endif
+
+/**************************************************************************/
+
+#ifdef __riscv_zvl256b
+
+#define SLEEF_VEC_256_AVAILABLE
+
+typedef vfloat32m8_t reg256f;
+typedef vfloat64m4_t reg256d;
+typedef vint64m4_t reg256i;
+
+#define ENABLE_RVVM2
+
+#ifndef Sleef_vfloat64m4_t_2_DEFINED
+typedef struct
+{
+    vfloat64m4_t x, y;
+} Sleef_vfloat64m4_t_2;
+#define Sleef_vfloat64m4_t_2_DEFINED
+#endif
+typedef Sleef_vfloat64m4_t_2 Sleef_reg256d_2;
+
+vfloat64m4_t Sleef_sind4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_cosd4_u35_intrin (vfloat64m4_t);
+Sleef_vfloat64m4_t_2 Sleef_sincosd4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_tand4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_asind4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_acosd4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_atand4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_atan2d4_u35_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_logd4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_cbrtd4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_sind4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_cosd4_u10_intrin (vfloat64m4_t);
+Sleef_vfloat64m4_t_2 Sleef_sincosd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_tand4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_asind4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_acosd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_atand4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_atan2d4_u10_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_logd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_cbrtd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_expd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_powd4_u10_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_sinhd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_coshd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_tanhd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_asinhd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_acoshd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_atanhd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_exp2d4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_exp10d4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_expm1d4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_log10d4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_log2d4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_log1pd4_u10_intrin (vfloat64m4_t);
+Sleef_vfloat64m4_t_2 Sleef_sincospid4_u05_intrin (vfloat64m4_t);
+Sleef_vfloat64m4_t_2 Sleef_sincospid4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_sinpid4_u05_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_cospid4_u05_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_ldexpd4_intrin (vfloat64m4_t, vint32m4_t);
+vint32m4_t Sleef_ilogbd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_fmad4_intrin (vfloat64m4_t, vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_sqrtd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_sqrtd4_u05_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_sqrtd4_u35_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_hypotd4_u05_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_hypotd4_u35_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_fabsd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_copysignd4_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_fmaxd4_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_fmind4_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_fdimd4_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_truncd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_floord4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_ceild4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_roundd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_rintd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_nextafterd4_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat64m4_t Sleef_frfrexpd4_intrin (vfloat64m4_t);
+vint32m8_t Sleef_expfrexpd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_fmodd4_intrin (vfloat64m4_t, vfloat64m4_t);
+Sleef_vfloat64m4_t_2 Sleef_modfd4_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_lgammad4_u10_intrin (vfloat64m4_t);
+Sleef_vfloat64m4_t_2 Sleef_lgamma_rd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_tgammad4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_erfd4_u10_intrin (vfloat64m4_t);
+vfloat64m4_t Sleef_erfcd4_u15_intrin (vfloat64m4_t);
+
+#ifndef Sleef_vfloat32m8_t_2_DEFINED
+typedef struct
+{
+    vfloat32m8_t x, y;
+} Sleef_vfloat32m8_t_2;
+#define Sleef_vfloat32m8_t_2_DEFINED
+#endif
+typedef Sleef_vfloat32m8_t_2 Sleef_reg256f_2;
+
+vfloat32m8_t Sleef_sinf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cosf8_u35_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincosf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tanf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_asinf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_acosf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atanf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atan2f8_u35_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_logf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cbrtf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sinf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cosf8_u10_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincosf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tanf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_asinf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_acosf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atanf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atan2f8_u10_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_logf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cbrtf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_expf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_powf8_u10_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_sinhf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_coshf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tanhf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_asinhf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_acoshf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_atanhf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_exp2f8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_exp10f8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_expm1f8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_log10f8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_log2f8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_log1pf8_u10_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincospif8_u05_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_sincospif8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sinpif8_u05_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_cospif8_u05_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_ldexpf8_intrin (vfloat32m8_t, vint32m8_t);
+vint32m8_t Sleef_ilogbf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_fmaf8_intrin (vfloat32m8_t, vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_sqrtf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sqrtf8_u05_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_sqrtf8_u35_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_hypotf8_u05_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_hypotf8_u35_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fabsf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_copysignf8_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fmaxf8_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fminf8_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_fdimf8_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_truncf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_floorf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_ceilf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_roundf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_rintf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_nextafterf8_intrin (vfloat32m8_t, vfloat32m8_t);
+vfloat32m8_t Sleef_frfrexpf8_intrin (vfloat32m8_t);
+vint32m8_t Sleef_expfrexpf8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_fmodf8_intrin (vfloat32m8_t, vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_modff8_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_lgammaf8_u10_intrin (vfloat32m8_t);
+Sleef_vfloat32m8_t_2 Sleef_lgamma_rf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_tgammaf8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_erff8_u10_intrin (vfloat32m8_t);
+vfloat32m8_t Sleef_erfcf8_u15_intrin (vfloat32m8_t);
+
+vfloat64m4_t Sleef_pownd4_u10_intrin (vfloat64m4_t, vint32m4_t);
+vfloat32m8_t Sleef_pownf8_u10_intrin (vfloat32m8_t, vint32m8_t);
+vfloat64m4_t Sleef_powrd4_u10_intrin (vfloat64m4_t, vfloat64m4_t);
+vfloat32m8_t Sleef_powrf8_u10_intrin (vfloat32m8_t, vfloat32m8_t);
+
+#endif
+
+/**************************************************************************/
 
 #if defined(__SSE2__)
 
@@ -730,6 +1071,179 @@ __m128d Sleef_powrd2_u10_intrin (__m128d, __m128d);
 __m128 Sleef_powrf4_u10_intrin (__m128, __m128);
 
 #endif
+
+/**************************************************************************/
+
+#if defined(__riscv_zvl128b)
+
+#define SLEEF_VEC_128_AVAILABLE
+
+#define ENABLE_RVVM2
+
+typedef vfloat32m4_t reg128f;
+typedef vfloat64m2_t reg128d;
+typedef vint32m2_t reg128i;
+
+#ifndef Sleef_vfloat64m2_t_2_DEFINED
+typedef struct
+{
+    vfloat64m2_t x, y;
+} Sleef_vfloat64m2_t_2;
+#define Sleef_vfloat64m2_t_2_DEFINED
+#endif
+typedef Sleef_vfloat64m2_t_2 Sleef_reg128d_2;
+
+vfloat64m2_t Sleef_sind2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_cosd2_u35_intrin (vfloat64m2_t);
+Sleef_vfloat64m2_t_2 Sleef_sincosd2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_tand2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_asind2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_acosd2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_atand2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_atan2d2_u35_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_logd2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_cbrtd2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_sind2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_cosd2_u10_intrin (vfloat64m2_t);
+Sleef_vfloat64m2_t_2 Sleef_sincosd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_tand2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_asind2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_acosd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_atand2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_atan2d2_u10_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_logd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_cbrtd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_expd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_powd2_u10_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_sinhd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_coshd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_tanhd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_asinhd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_acoshd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_atanhd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_exp2d2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_exp10d2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_expm1d2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_log10d2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_log2d2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_log1pd2_u10_intrin (vfloat64m2_t);
+Sleef_vfloat64m2_t_2 Sleef_sincospid2_u05_intrin (vfloat64m2_t);
+Sleef_vfloat64m2_t_2 Sleef_sincospid2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_sinpid2_u05_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_cospid2_u05_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_ldexpd2_intrin (vfloat64m2_t, vint32m2_t);
+vint32m2_t Sleef_ilogbd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_fmad2_intrin (vfloat64m2_t, vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_sqrtd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_sqrtd2_u05_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_sqrtd2_u35_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_hypotd2_u05_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_hypotd2_u35_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_fabsd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_copysignd2_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_fmaxd2_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_fmind2_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_fdimd2_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_truncd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_floord2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_ceild2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_roundd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_rintd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_nextafterd2_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat64m2_t Sleef_frfrexpd2_intrin (vfloat64m2_t);
+vint32m2_t Sleef_expfrexpd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_fmodd2_intrin (vfloat64m2_t, vfloat64m2_t);
+Sleef_vfloat64m2_t_2 Sleef_modfd2_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_lgammad2_u10_intrin (vfloat64m2_t);
+Sleef_vfloat64m2_t_2 Sleef_lgamma_rd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_tgammad2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_erfd2_u10_intrin (vfloat64m2_t);
+vfloat64m2_t Sleef_erfcd2_u15_intrin (vfloat64m2_t);
+
+#ifndef Sleef_vfloat32m4_t_2_DEFINED
+typedef struct
+{
+    vfloat32m4_t x, y;
+} Sleef_vfloat32m4_t_2;
+#define Sleef_vfloat32m4_t_2_DEFINED
+#endif
+typedef Sleef_vfloat32m4_t_2 Sleef_reg128f_2;
+
+vfloat32m4_t Sleef_sinf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_cosf4_u35_intrin (vfloat32m4_t);
+Sleef_vfloat32m4_t_2 Sleef_sincosf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_tanf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_asinf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_acosf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_atanf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_atan2f4_u35_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_logf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_cbrtf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_sinf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_cosf4_u10_intrin (vfloat32m4_t);
+Sleef_vfloat32m4_t_2 Sleef_sincosf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_tanf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_asinf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_acosf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_atanf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_atan2f4_u10_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_logf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_cbrtf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_expf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_powf4_u10_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_sinhf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_coshf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_tanhf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_asinhf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_acoshf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_atanhf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_exp2f4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_exp10f4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_expm1f4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_log10f4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_log2f4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_log1pf4_u10_intrin (vfloat32m4_t);
+Sleef_vfloat32m4_t_2 Sleef_sincospif4_u05_intrin (vfloat32m4_t);
+Sleef_vfloat32m4_t_2 Sleef_sincospif4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_sinpif4_u05_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_cospif4_u05_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_ldexpf4_intrin (vfloat32m4_t, vint32m2_t);
+vint32m2_t Sleef_ilogbf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_fmaf4_intrin (vfloat32m4_t, vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_sqrtf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_sqrtf4_u05_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_sqrtf4_u35_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_hypotf4_u05_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_hypotf4_u35_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_fabsf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_copysignf4_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_fmaxf4_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_fminf4_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_fdimf4_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_truncf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_floorf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_ceilf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_roundf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_rintf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_nextafterf4_intrin (vfloat32m4_t, vfloat32m4_t);
+vfloat32m4_t Sleef_frfrexpf4_intrin (vfloat32m4_t);
+vint32m2_t Sleef_expfrexpf4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_fmodf4_intrin (vfloat32m4_t, vfloat32m4_t);
+Sleef_vfloat32m4_t_2 Sleef_modff4_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_lgammaf4_u10_intrin (vfloat32m4_t);
+Sleef_vfloat32m4_t_2 Sleef_lgamma_rf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_tgammaf4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_erff4_u10_intrin (vfloat32m4_t);
+vfloat32m4_t Sleef_erfcf4_u15_intrin (vfloat32m4_t);
+
+vfloat64m2_t Sleef_pownd2_u10_intrin (vfloat64m2_t, vint32m2_t);
+vfloat32m4_t Sleef_pownf4_u10_intrin (vfloat32m4_t, vint32m2_t);
+vfloat64m2_t Sleef_powrd2_u10_intrin (vfloat64m2_t, vfloat64m2_t);
+vfloat32m4_t Sleef_powrf4_u10_intrin (vfloat32m4_t, vfloat32m4_t);
+
+#endif
+
+/**************************************************************************/
 
 #ifdef __ARM_NEON
 
@@ -905,6 +1419,8 @@ float64x2_t Sleef_pownd2_u10_intrin (float64x2_t, int32x2_t);
 float64x2_t Sleef_powrd2_u10_intrin (float64x2_t, float64x2_t);
 
 #endif
+
+/**************************************************************************/
 
 #endif
 
