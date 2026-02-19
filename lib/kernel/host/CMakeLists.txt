@@ -188,7 +188,7 @@ libclc-pocl/isinf.cl
 libclc-pocl/isnan.cl
 libclc-pocl/isfinite.cl
 libclc-pocl/isnormal.cl
-
+libclc-pocl/rint.cl
 
 libclc/vtables_fp32.cl
 libclc/vtables_fp64.cl
@@ -234,7 +234,7 @@ sleef-pocl/native_cos.cl
 sleef-pocl/native_sin.cl
 sleef-pocl/native_tan.cl
 sleef-pocl/nextafter.cl
-sleef-pocl/rint.cl
+#sleef-pocl/rint.cl
 sleef-pocl/round.cl
 sleef-pocl/sqrt.cl
 sleef-pocl/tgamma.cl
