@@ -75,11 +75,11 @@ jobs:
           if [ "${{ matrix.device }}" == "x86_64" ]; then
             runCMake
           elif [ "${{ matrix.device }}" == "RISCV" ]; then
-            runCMake -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
-            -DLLVM_DIR=${TARGET_ROOT}${TARGET_LLVM_INSTALL_DIR} \
+            runCMake -DCMAKE_MAKE_PROGRAM=/usr/bin/make -DENABLE_ICD=0 \
+            -DLLVM_DIR=${TARGET_ROOT}/opt/LLVM_${{ matrix.llvm }} \
             -DHOST_DEVICE_BUILD_HASH=${TARGET_TRIPLE} -DCMAKE_TOOLCHAIN_FILE=${TARGET_TOOLCHAIN_FILE}  \
             -DLLC_TRIPLE=${TARGET_TRIPLE} -DLLC_HOST_CPU=${TARGET_CPU} -DCMAKE_PREFIX_PATH=${TARGET_ROOT} \
-            -DENABLE_LOADABLE_DRIVERS=0 -DKERNELLIB_HOST_CPU_VARIANTS=${TARGET_CPU}
+            -DENABLE_ICD=ON -DENABLE_LOADABLE_DRIVERS=0 -DKERNELLIB_HOST_CPU_VARIANTS=${TARGET_CPU}
           else
             echo "Unknown configuration" && exit 1
           fi
