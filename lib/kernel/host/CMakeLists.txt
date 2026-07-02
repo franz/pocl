@@ -489,10 +489,6 @@ function(x86_distro_variant_to_flags VARIANT OUT_LLC_FLAGS OUT_CLANG_FLAGS)
     set(CLANG_F "${CLANG_MARCH_FLAG}x86-64")
     set(LLC_F "-mcpu=x86-64")
 
-  elseif("${VARIANT}" STREQUAL "ssse3")
-    set(CLANG_F "${CLANG_MARCH_FLAG}core2")
-    set(LLC_F "-mcpu=core2")
-
   elseif("${VARIANT}" STREQUAL "sse41")
     set(CLANG_F "${CLANG_MARCH_FLAG}penryn")
     set(LLC_F "-mcpu=penryn")
@@ -513,9 +509,13 @@ function(x86_distro_variant_to_flags VARIANT OUT_LLC_FLAGS OUT_CLANG_FLAGS)
     set(CLANG_F "${CLANG_MARCH_FLAG}haswell")
     set(LLC_F "-mcpu=haswell")
 
-  elseif("${VARIANT}" STREQUAL "avx512")
+  elseif("${VARIANT}" STREQUAL "avx512-core")
     set(CLANG_F "${CLANG_MARCH_FLAG}skylake-avx512")
     set(LLC_F "-mcpu=skylake-avx512")
+
+  elseif("${VARIANT}" STREQUAL "avx512-zen4")
+    set(CLANG_F "${CLANG_MARCH_FLAG}zen4")
+    set(LLC_F "-mcpu=zen4")
 
   else()
     set(CLANG_F "${CLANG_MARCH_FLAG}${VARIANT}")

@@ -222,33 +222,40 @@ const struct kernellib_features {
     "pentium3",
     {"sse", NULL},
 #endif
-#if defined(__i386__) || defined(_M_IX86) || \
-    defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__) || defined(_M_X64)
     "sse2",
     "x86-64",
     {"sse2", NULL},
-    "ssse3",
-    "core2",
-    {"sse2", "ssse3", "cx16", NULL},
+
     "sse41",
     "penryn",
     {"sse2", "sse4.1", "cx16", NULL},
+
     "avx",
     "sandybridge",
     {"sse2", "avx", "cx16", "popcnt", NULL},
+
     "avx_f16c",
     "ivybridge",
     {"sse2", "avx", "cx16", "popcnt", "f16c", NULL},
+
     "avx_fma4",
     "bdver1",
     {"sse2", "avx", "cx16", "popcnt", "xop", "fma4", NULL},
+
     "avx2",
     "haswell",
     {"sse2", "avx", "avx2", "cx16", "popcnt", "lzcnt", "f16c", "fma", "bmi",
      "bmi2", NULL},
-    "avx512",
+
+    "avx512-core",
     "skylake-avx512",
-    {"sse2", "avx512f", NULL},
+    {"avx512f", "avx512cd", "avx512dq", "avx512bw", "avx512vl", NULL},
+
+    "avx512-zen4",
+    "zen4",
+    { "avx512ifma", "avx512vnni", "avx512vbmi", "avx512vbmi2", "avx512bitalg", "avx512vpclmulqdq", NULL},
+
 #endif
     NULL,
     NULL,
