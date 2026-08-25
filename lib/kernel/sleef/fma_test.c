@@ -19,7 +19,7 @@ int main() {
     return -1;
   #elif defined(__AVX2__) || defined(__FMA4__)
     return 0;
-  #elif defined(__riscv_f)
+  #elif defined(__riscv_f) && defined(__riscv_vector) && defined(__riscv_zvl128b)
     return 0;
   #else
     #error FMA status unknown
@@ -30,7 +30,7 @@ int main() {
 
   #if defined(__AVX2__) || defined(__FMA4__)
     return 0;
-  #elif defined(__riscv_f)
+  #elif defined(__riscv_f) && defined(__riscv_vector) && defined(__riscv_zvl256b)
     return 0;
   #else
     #error FMA status unknown
@@ -41,7 +41,7 @@ int main() {
 
   #if defined(__AVX512F__)
     return 0;
-  #elif defined(__riscv_f)
+  #elif defined(__riscv_f) && defined(__riscv_vector) && defined(__riscv_zvl512b)
     return 0;
   #else
     #error FMA status unknown

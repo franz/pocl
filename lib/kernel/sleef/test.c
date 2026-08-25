@@ -21,7 +21,7 @@
   #elif defined(__SSE2__)
     #define CONFIG 2
 
-  #elif defined(__riscv) && defined(__riscv_vector)
+  #elif defined(__riscv_f) && defined(__riscv_vector) && defined(__riscv_zvl128b)
     #define CONFIG 1
 
   #else
@@ -39,7 +39,7 @@
   #elif defined(__AVX__)
     #define CONFIG 1
 
-  #elif defined(__riscv) && defined(__riscv_vector)
+  #elif defined(__riscv_f) && defined(__riscv_vector) && defined(__riscv_zvl256b)
     #define CONFIG 4
 
   #else
@@ -51,7 +51,7 @@
   #ifdef __AVX512F__
     #define CONFIG 1
 
-  #elif defined(__riscv) && defined(__riscv_vector)
+  #elif defined(__riscv_f) && defined(__riscv_vector) && defined(__riscv_zvl512b)
     #define CONFIG 1
 
   #else
