@@ -15,6 +15,11 @@
 #define LOG2VECTLENSP (LOG2VECTLENDP+1)
 #define VECTLENSP (1 << LOG2VECTLENSP)
 
+#if defined(__clang__) && __has_builtin(__builtin_elementwise_fma)
+#define ENABLE_FMA_DP
+#define ENABLE_FMA_SP
+#endif
+
 #define DFTPRIORITY LOG2VECTLENDP
 
 // GCC 4 has a bug that prevents long-double functions from compiling
@@ -530,8 +535,28 @@ static INLINE vdouble vrec_vd_vd(vdouble x) { return 1.0 / x; }
 
 static INLINE vdouble vabs_vd_vd(vdouble d) { return (vdouble)((vmask)d & ~(vmask)vcast_vd_d(-0.0)); }
 static INLINE vdouble vneg_vd_vd(vdouble d) { return -d; }
-static INLINE vdouble vmla_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return x * y + z; }
-static INLINE vdouble vmlapn_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return x * y - z; }
+
+static INLINE vdouble vmla_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) {
+#ifdef ENABLE_FMA_DP
+  return __builtin_elementwise_fma(x, y, z);
+#else
+  return x * y + z;
+#endif
+}
+static INLINE vdouble vmlapn_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) {
+#ifdef ENABLE_FMA_DP
+  return __builtin_elementwise_fma(x, y, -z);
+#else
+  return x * y - z;
+#endif
+}
+
+static INLINE vdouble vfma_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return vmla_vd_vd_vd_vd(x, y, z); }
+static INLINE vdouble vfmapp_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return vfma_vd_vd_vd_vd(x, y, z); }
+static INLINE vdouble vfmapn_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return vfma_vd_vd_vd_vd(x, y, -z); }
+static INLINE vdouble vfmanp_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return vfma_vd_vd_vd_vd(-x, y, z); }
+static INLINE vdouble vfmann_vd_vd_vd_vd(vdouble x, vdouble y, vdouble z) { return vfma_vd_vd_vd_vd(-x, y, -z); }
+
 static INLINE vdouble vmax_vd_vd_vd(vdouble x, vdouble y) { return vsel_vd_vo_vd_vd((vopmask)(x > y), x, y); }
 static INLINE vdouble vmin_vd_vd_vd(vdouble x, vdouble y) { return vsel_vd_vo_vd_vd((vopmask)(x < y), x, y); }
 
@@ -600,6 +625,9 @@ static INLINE vdouble vsqrt_vd_vd(vdouble d) {
   typedef int64_t vi64 __attribute__((vector_size(sizeof(int64_t)*VECTLENDP)));
 #endif
 
+#if defined(__clang__) && __has_builtin(__builtin_elementwise_sqrt)
+  return __builtin_elementwise_sqrt(d);
+#else
   vdouble q = vcast_vd_d(1);
 
   vopmask o = (vopmask)(d < 8.636168555094445E-78);
@@ -617,6 +645,7 @@ static INLINE vdouble vsqrt_vd_vd(vdouble d) {
   x = (d - (d * x) * (d * x)) * (x * 0.5) + d * x;
 
   return x * q;
+#endif
 }
 
 static INLINE double vcast_d_vd(vdouble v) { return v[0]; }
@@ -700,8 +729,28 @@ static INLINE vfloat vrec_vf_vf(vfloat x) { return 1.0f / x; }
 
 static INLINE vfloat vabs_vf_vf(vfloat f) { return (vfloat)vandnot_vm_vm_vm((vmask)vcast_vf_f(-0.0f), (vmask)f); }
 static INLINE vfloat vneg_vf_vf(vfloat d) { return -d; }
-static INLINE vfloat vmla_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return x*y+z; }
-static INLINE vfloat vmlanp_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return z-x*y; }
+
+static INLINE vfloat vmla_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) {
+#ifdef ENABLE_FMA_SP
+  return __builtin_elementwise_fma(x, y, z);
+#else
+  return x * y + z;
+#endif
+}
+static INLINE vfloat vmlanp_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) {
+#ifdef ENABLE_FMA_SP
+  return __builtin_elementwise_fma(-x, y, z);
+#else
+  return z - x * y ;
+#endif
+}
+
+static INLINE vfloat vfma_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return vmla_vf_vf_vf_vf(x, y, z); }
+static INLINE vfloat vfmapp_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return vfma_vf_vf_vf_vf(x, y, z); }
+static INLINE vfloat vfmapn_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return vfma_vf_vf_vf_vf(x, y, -z); }
+static INLINE vfloat vfmanp_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return vfma_vf_vf_vf_vf(-x, y, z); }
+static INLINE vfloat vfmann_vf_vf_vf_vf(vfloat x, vfloat y, vfloat z) { return vfma_vf_vf_vf_vf(-x, y, -z); }
+
 static INLINE vfloat vmax_vf_vf_vf(vfloat x, vfloat y) { return vsel_vf_vo_vf_vf((vopmask)(x > y), x, y); }
 static INLINE vfloat vmin_vf_vf_vf(vfloat x, vfloat y) { return vsel_vf_vo_vf_vf((vopmask)(x < y), x, y); }
 
@@ -756,6 +805,9 @@ static INLINE vopmask visminf_vo_vf(vfloat d) { return (vopmask)(d == -SLEEF_INF
 static INLINE vopmask visnan_vo_vf(vfloat d) { return (vopmask)(d != d); }
 
 static INLINE vfloat vsqrt_vf_vf(vfloat d) {
+#if defined(__clang__) && __has_builtin(__builtin_elementwise_sqrt)
+  return __builtin_elementwise_sqrt(d);
+#else
   vfloat q = vcast_vf_f(1);
 
   vopmask o = (vopmask)(d < 5.4210108624275221700372640043497e-20f); // 2^-64
@@ -770,6 +822,7 @@ static INLINE vfloat vsqrt_vf_vf(vfloat d) {
   x = (d - (d * x) * (d * x)) * (x * 0.5) + d * x;
 
   return x * q;
+#endif
 }
 
 static INLINE vfloat vload_vf_p(const float *ptr) { return *(vfloat *)ptr; }
