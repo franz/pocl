@@ -21,6 +21,9 @@
   #elif defined(__SSE2__)
     #define CONFIG 2
 
+  #elif defined(__riscv) && defined(__riscv_vector)
+    #define CONFIG 1
+
   #else
     #error 128bit vectors unavailable
   #endif
@@ -36,6 +39,9 @@
   #elif defined(__AVX__)
     #define CONFIG 1
 
+  #elif defined(__riscv) && defined(__riscv_vector)
+    #define CONFIG 4
+
   #else
     #error 256bit vectors unavailable
   #endif
@@ -44,6 +50,10 @@
 
   #ifdef __AVX512F__
     #define CONFIG 1
+
+  #elif defined(__riscv) && defined(__riscv_vector)
+    #define CONFIG 1
+
   #else
     #error 512bit vectors unavailable
   #endif

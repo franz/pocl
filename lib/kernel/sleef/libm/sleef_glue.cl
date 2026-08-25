@@ -24,6 +24,7 @@
 #include "sleef_cl.h"
 
 #ifdef cl_khr_fp64
+
 #ifdef SLEEF_VEC_128_AVAILABLE
 
 #ifdef SLEEF_VINT_IS_VLONG
@@ -57,6 +58,7 @@ Sleef_ilogbd2 (double2 x)
 
 #endif
 
+#endif
 
 _CL_ALWAYSINLINE long2 Sleef_expfrexpd2_long (double2 x);
 
@@ -82,5 +84,4 @@ Sleef_expfrexpd8 (double8 x)
   return convert_int8 (Sleef_expfrexpd8_long (x));
 }
 
-#endif
 #endif

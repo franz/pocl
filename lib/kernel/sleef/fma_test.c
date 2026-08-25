@@ -19,6 +19,8 @@ int main() {
     return -1;
   #elif defined(__AVX2__) || defined(__FMA4__)
     return 0;
+  #elif defined(__riscv_f)
+    return 0;
   #else
     #error FMA status unknown
     return -1;
@@ -28,6 +30,8 @@ int main() {
 
   #if defined(__AVX2__) || defined(__FMA4__)
     return 0;
+  #elif defined(__riscv_f)
+    return 0;
   #else
     #error FMA status unknown
     return -1;
@@ -36,6 +40,8 @@ int main() {
 #elif defined(VEC512)
 
   #if defined(__AVX512F__)
+    return 0;
+  #elif defined(__riscv_f)
     return 0;
   #else
     #error FMA status unknown

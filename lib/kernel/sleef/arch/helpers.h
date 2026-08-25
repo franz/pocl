@@ -68,6 +68,10 @@
     #define ENABLE_SSE2
     #include "helpersse2.h"
 
+  #elif defined(__riscv) && defined(__riscv_vector)
+    #define CONFIG 1
+    #include "helpervecext.h"
+
   #else
     #error 128bit vectors unavailable
   #endif
@@ -94,6 +98,10 @@
     #define ENABLE_AVX
     #include "helperavx.h"
 
+  #elif defined(__riscv) && defined(__riscv_vector)
+    #define CONFIG 2
+    #include "helpervecext.h"
+
   #else
     #error 256bit vectors unavailable
   #endif
@@ -108,6 +116,11 @@
     #define CONFIG 1
     #define ENABLE_AVX512F
     #include "helperavx512f.h"
+
+  #elif defined(__riscv) && defined(__riscv_vector)
+    #define CONFIG 4
+    #include "helpervecext.h"
+
   #else
     #error 512bit vectors unavailable
   #endif

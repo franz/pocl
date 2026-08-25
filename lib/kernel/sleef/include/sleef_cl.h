@@ -314,6 +314,9 @@ double8 Sleef_tgammad8_u10 (double8);
 double8 Sleef_erfd8_u10 (double8);
 double8 Sleef_erfcd8_u15 (double8);
 
+double8 Sleef_pownd8_u10 (double8, int8);
+double8 Sleef_powrd8_u10 (double8, double8);
+
 #endif
 
 #ifndef Sleef_float16_2_DEFINED
@@ -392,9 +395,7 @@ float16 Sleef_erff16_u10 (float16);
 float16 Sleef_erfcf16_u15 (float16);
 
 
-double8 Sleef_pownd8_u10 (double8, int8);
 float16 Sleef_pownf16_u10 (float16, int16);
-double8 Sleef_powrd8_u10 (double8, double8);
 float16 Sleef_powrf16_u10 (float16, float16);
 
 #endif
@@ -480,6 +481,9 @@ double4 Sleef_tgammad4_u10 (double4);
 double4 Sleef_erfd4_u10 (double4);
 double4 Sleef_erfcd4_u15 (double4);
 
+double4 Sleef_pownd4_u10 (double4, int4);
+double4 Sleef_powrd4_u10 (double4, double4);
+
 #endif
 
 #ifndef Sleef_float8_2_DEFINED
@@ -557,9 +561,7 @@ float8 Sleef_tgammaf8_u10 (float8);
 float8 Sleef_erff8_u10 (float8);
 float8 Sleef_erfcf8_u15 (float8);
 
-double4 Sleef_pownd4_u10 (double4, int4);
 float8 Sleef_pownf8_u10 (float8, int8);
-double4 Sleef_powrd4_u10 (double4, double4);
 float8 Sleef_powrf8_u10 (float8, float8);
 
 #endif

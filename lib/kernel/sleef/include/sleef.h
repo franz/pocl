@@ -302,6 +302,8 @@ Sleef___m512d_2 Sleef_lgamma_rd8_u10_intrin (__m512d);
 __m512d Sleef_tgammad8_u10_intrin (__m512d);
 __m512d Sleef_erfd8_u10_intrin (__m512d);
 __m512d Sleef_erfcd8_u15_intrin (__m512d);
+__m512d Sleef_pownd8_u10_intrin (__m512d, __m256i);
+__m512d Sleef_powrd8_u10_intrin (__m512d, __m512d);
 
 #ifndef Sleef___m512_2_DEFINED
 typedef struct
@@ -378,28 +380,13 @@ Sleef___m512_2 Sleef_lgamma_rf16_u10_intrin (__m512);
 __m512 Sleef_tgammaf16_u10_intrin (__m512);
 __m512 Sleef_erff16_u10_intrin (__m512);
 __m512 Sleef_erfcf16_u15_intrin (__m512);
-
-__m512d Sleef_pownd8_u10_intrin (__m512d, __m256i);
 __m512 Sleef_pownf16_u10_intrin (__m512, __m512i);
-__m512d Sleef_powrd8_u10_intrin (__m512d, __m512d);
 __m512 Sleef_powrf16_u10_intrin (__m512, __m512);
-
 #endif
 
 #if defined(__AVX2__) || defined(__AVX__)
 
 #define SLEEF_VEC_256_AVAILABLE
-
-/*
-#ifndef __AVX2__
-
-typedef struct
-{
-  __m128i x, y;
-} __m256i;
-
-#endif
-*/
 
 typedef __m256 reg256f;
 typedef __m256d reg256d;
@@ -480,6 +467,8 @@ Sleef___m256d_2 Sleef_lgamma_rd4_u10_intrin (__m256d);
 __m256d Sleef_tgammad4_u10_intrin (__m256d);
 __m256d Sleef_erfd4_u10_intrin (__m256d);
 __m256d Sleef_erfcd4_u15_intrin (__m256d);
+__m256d Sleef_pownd4_u10_intrin (__m256d, __m128i);
+__m256d Sleef_powrd4_u10_intrin (__m256d, __m256d);
 
 #ifndef Sleef___m256_2_DEFINED
 typedef struct
@@ -556,10 +545,7 @@ Sleef___m256_2 Sleef_lgamma_rf8_u10_intrin (__m256);
 __m256 Sleef_tgammaf8_u10_intrin (__m256);
 __m256 Sleef_erff8_u10_intrin (__m256);
 __m256 Sleef_erfcf8_u15_intrin (__m256);
-
-__m256d Sleef_pownd4_u10_intrin (__m256d, __m128i);
 __m256 Sleef_pownf8_u10_intrin (__m256, __m256i);
-__m256d Sleef_powrd4_u10_intrin (__m256d, __m256d);
 __m256 Sleef_powrf8_u10_intrin (__m256, __m256);
 
 #endif
@@ -647,6 +633,8 @@ Sleef___m128d_2 Sleef_lgamma_rd2_u10_intrin (__m128d);
 __m128d Sleef_tgammad2_u10_intrin (__m128d);
 __m128d Sleef_erfd2_u10_intrin (__m128d);
 __m128d Sleef_erfcd2_u15_intrin (__m128d);
+__m128d Sleef_pownd2_u10_intrin (__m128d, __m128i);
+__m128d Sleef_powrd2_u10_intrin (__m128d, __m128d);
 
 #ifndef Sleef___m128_2_DEFINED
 typedef struct
@@ -723,10 +711,7 @@ Sleef___m128_2 Sleef_lgamma_rf4_u10_intrin (__m128);
 __m128 Sleef_tgammaf4_u10_intrin (__m128);
 __m128 Sleef_erff4_u10_intrin (__m128);
 __m128 Sleef_erfcf4_u15_intrin (__m128);
-
-__m128d Sleef_pownd2_u10_intrin (__m128d, __m128i);
 __m128 Sleef_pownf4_u10_intrin (__m128, __m128i);
-__m128d Sleef_powrd2_u10_intrin (__m128d, __m128d);
 __m128 Sleef_powrf4_u10_intrin (__m128, __m128);
 
 #endif
@@ -815,7 +800,6 @@ Sleef_float32x4_t_2 Sleef_lgamma_rf4_u10_intrin (float32x4_t);
 float32x4_t Sleef_tgammaf4_u10_intrin (float32x4_t);
 float32x4_t Sleef_erff4_u10_intrin (float32x4_t);
 float32x4_t Sleef_erfcf4_u15_intrin (float32x4_t);
-
 float32x4_t Sleef_pownf4_u10_intrin (float32x4_t, int32x4_t);
 float32x4_t Sleef_powrf4_u10_intrin (float32x4_t, float32x4_t);
 
@@ -900,7 +884,6 @@ Sleef_float64x2_t_2 Sleef_lgamma_rd2_u10_intrin (float64x2_t);
 float64x2_t Sleef_tgammad2_u10_intrin (float64x2_t);
 float64x2_t Sleef_erfd2_u10_intrin (float64x2_t);
 float64x2_t Sleef_erfcd2_u15_intrin (float64x2_t);
-
 float64x2_t Sleef_pownd2_u10_intrin (float64x2_t, int32x2_t);
 float64x2_t Sleef_powrd2_u10_intrin (float64x2_t, float64x2_t);
 
@@ -908,5 +891,505 @@ float64x2_t Sleef_powrd2_u10_intrin (float64x2_t, float64x2_t);
 
 #endif
 
+#ifdef __riscv
+
+#define SLEEF_VEC_512_AVAILABLE
+
+typedef float reg512f __attribute__ ((__ext_vector_type__ (16)));
+typedef double reg512d __attribute__ ((__ext_vector_type__ (8)));
+typedef int reg512i __attribute__ ((__ext_vector_type__ (16)));
+
+typedef float reg256f __attribute__ ((__ext_vector_type__ (8)));
+typedef double reg256d __attribute__ ((__ext_vector_type__ (4)));
+typedef int reg256i __attribute__ ((__ext_vector_type__ (8)));
+
+typedef float reg128f __attribute__ ((__ext_vector_type__ (4)));
+typedef double reg128d __attribute__ ((__ext_vector_type__ (2)));
+typedef int reg128i __attribute__ ((__ext_vector_type__ (4)));
+
+
+#ifndef Sleef_reg512d_2_DEFINED
+typedef struct
+{
+  reg512d x, y;
+} Sleef_reg512d_2;
+#define Sleef_reg512d_2_DEFINED
+#endif
+typedef Sleef_reg512d_2 Sleef_reg512d_2;
+
+reg512d Sleef_sind8_u35_intrin (reg512d);
+reg512d Sleef_cosd8_u35_intrin (reg512d);
+Sleef_reg512d_2 Sleef_sincosd8_u35_intrin (reg512d);
+reg512d Sleef_tand8_u35_intrin (reg512d);
+reg512d Sleef_asind8_u35_intrin (reg512d);
+reg512d Sleef_acosd8_u35_intrin (reg512d);
+reg512d Sleef_atand8_u35_intrin (reg512d);
+reg512d Sleef_atan2d8_u35_intrin (reg512d, reg512d);
+reg512d Sleef_logd8_u35_intrin (reg512d);
+reg512d Sleef_cbrtd8_u35_intrin (reg512d);
+reg512d Sleef_sind8_u10_intrin (reg512d);
+reg512d Sleef_cosd8_u10_intrin (reg512d);
+Sleef_reg512d_2 Sleef_sincosd8_u10_intrin (reg512d);
+reg512d Sleef_tand8_u10_intrin (reg512d);
+reg512d Sleef_asind8_u10_intrin (reg512d);
+reg512d Sleef_acosd8_u10_intrin (reg512d);
+reg512d Sleef_atand8_u10_intrin (reg512d);
+reg512d Sleef_atan2d8_u10_intrin (reg512d, reg512d);
+reg512d Sleef_logd8_u10_intrin (reg512d);
+reg512d Sleef_cbrtd8_u10_intrin (reg512d);
+reg512d Sleef_expd8_u10_intrin (reg512d);
+reg512d Sleef_powd8_u10_intrin (reg512d, reg512d);
+reg512d Sleef_sinhd8_u10_intrin (reg512d);
+reg512d Sleef_coshd8_u10_intrin (reg512d);
+reg512d Sleef_tanhd8_u10_intrin (reg512d);
+reg512d Sleef_asinhd8_u10_intrin (reg512d);
+reg512d Sleef_acoshd8_u10_intrin (reg512d);
+reg512d Sleef_atanhd8_u10_intrin (reg512d);
+reg512d Sleef_exp2d8_u10_intrin (reg512d);
+reg512d Sleef_exp10d8_u10_intrin (reg512d);
+reg512d Sleef_expm1d8_u10_intrin (reg512d);
+reg512d Sleef_log10d8_u10_intrin (reg512d);
+reg512d Sleef_log2d8_u10_intrin (reg512d);
+reg512d Sleef_log1pd8_u10_intrin (reg512d);
+Sleef_reg512d_2 Sleef_sincospid8_u05_intrin (reg512d);
+Sleef_reg512d_2 Sleef_sincospid8_u35_intrin (reg512d);
+reg512d Sleef_sinpid8_u05_intrin (reg512d);
+reg512d Sleef_cospid8_u05_intrin (reg512d);
+reg512d Sleef_ldexpd8_intrin (reg512d, reg256i);
+reg256i Sleef_ilogbd8_intrin (reg512d);
+reg512d Sleef_fmad8_intrin (reg512d, reg512d, reg512d);
+reg512d Sleef_sqrtd8_intrin (reg512d);
+reg512d Sleef_sqrtd8_u05_intrin (reg512d);
+reg512d Sleef_sqrtd8_u35_intrin (reg512d);
+reg512d Sleef_hypotd8_u05_intrin (reg512d, reg512d);
+reg512d Sleef_hypotd8_u35_intrin (reg512d, reg512d);
+reg512d Sleef_fabsd8_intrin (reg512d);
+reg512d Sleef_copysignd8_intrin (reg512d, reg512d);
+reg512d Sleef_fmaxd8_intrin (reg512d, reg512d);
+reg512d Sleef_fmind8_intrin (reg512d, reg512d);
+reg512d Sleef_fdimd8_intrin (reg512d, reg512d);
+reg512d Sleef_truncd8_intrin (reg512d);
+reg512d Sleef_floord8_intrin (reg512d);
+reg512d Sleef_ceild8_intrin (reg512d);
+reg512d Sleef_roundd8_intrin (reg512d);
+reg512d Sleef_rintd8_intrin (reg512d);
+reg512d Sleef_nextafterd8_intrin (reg512d, reg512d);
+reg512d Sleef_frfrexpd8_intrin (reg512d);
+reg512i Sleef_expfrexpd8_intrin (reg512d);
+reg512d Sleef_fmodd8_intrin (reg512d, reg512d);
+Sleef_reg512d_2 Sleef_modfd8_intrin (reg512d);
+reg512d Sleef_lgammad8_u10_intrin (reg512d);
+Sleef_reg512d_2 Sleef_lgamma_rd8_u10_intrin (reg512d);
+reg512d Sleef_tgammad8_u10_intrin (reg512d);
+reg512d Sleef_erfd8_u10_intrin (reg512d);
+reg512d Sleef_erfcd8_u15_intrin (reg512d);
+reg512d Sleef_pownd8_u10_intrin (reg512d, reg256i);
+reg512d Sleef_powrd8_u10_intrin (reg512d, reg512d);
+
+#ifndef Sleef_reg512f_2_DEFINED
+typedef struct
+{
+  reg512f x, y;
+} Sleef_reg512f_2;
+#define Sleef_reg512f_2_DEFINED
+#endif
+typedef Sleef_reg512f_2 Sleef_reg512f_2;
+
+reg512f Sleef_sinf16_u35_intrin (reg512f);
+reg512f Sleef_cosf16_u35_intrin (reg512f);
+Sleef_reg512f_2 Sleef_sincosf16_u35_intrin (reg512f);
+reg512f Sleef_tanf16_u35_intrin (reg512f);
+reg512f Sleef_asinf16_u35_intrin (reg512f);
+reg512f Sleef_acosf16_u35_intrin (reg512f);
+reg512f Sleef_atanf16_u35_intrin (reg512f);
+reg512f Sleef_atan2f16_u35_intrin (reg512f, reg512f);
+reg512f Sleef_logf16_u35_intrin (reg512f);
+reg512f Sleef_cbrtf16_u35_intrin (reg512f);
+reg512f Sleef_sinf16_u10_intrin (reg512f);
+reg512f Sleef_cosf16_u10_intrin (reg512f);
+Sleef_reg512f_2 Sleef_sincosf16_u10_intrin (reg512f);
+reg512f Sleef_tanf16_u10_intrin (reg512f);
+reg512f Sleef_asinf16_u10_intrin (reg512f);
+reg512f Sleef_acosf16_u10_intrin (reg512f);
+reg512f Sleef_atanf16_u10_intrin (reg512f);
+reg512f Sleef_atan2f16_u10_intrin (reg512f, reg512f);
+reg512f Sleef_logf16_u10_intrin (reg512f);
+reg512f Sleef_cbrtf16_u10_intrin (reg512f);
+reg512f Sleef_expf16_u10_intrin (reg512f);
+reg512f Sleef_powf16_u10_intrin (reg512f, reg512f);
+reg512f Sleef_sinhf16_u10_intrin (reg512f);
+reg512f Sleef_coshf16_u10_intrin (reg512f);
+reg512f Sleef_tanhf16_u10_intrin (reg512f);
+reg512f Sleef_asinhf16_u10_intrin (reg512f);
+reg512f Sleef_acoshf16_u10_intrin (reg512f);
+reg512f Sleef_atanhf16_u10_intrin (reg512f);
+reg512f Sleef_exp2f16_u10_intrin (reg512f);
+reg512f Sleef_exp10f16_u10_intrin (reg512f);
+reg512f Sleef_expm1f16_u10_intrin (reg512f);
+reg512f Sleef_log10f16_u10_intrin (reg512f);
+reg512f Sleef_log2f16_u10_intrin (reg512f);
+reg512f Sleef_log1pf16_u10_intrin (reg512f);
+Sleef_reg512f_2 Sleef_sincospif16_u05_intrin (reg512f);
+Sleef_reg512f_2 Sleef_sincospif16_u35_intrin (reg512f);
+reg512f Sleef_sinpif16_u05_intrin (reg512f);
+reg512f Sleef_cospif16_u05_intrin (reg512f);
+reg512f Sleef_ldexpf16_intrin (reg512f, reg512i);
+reg512i Sleef_ilogbf16_intrin (reg512f);
+reg512f Sleef_fmaf16_intrin (reg512f, reg512f, reg512f);
+reg512f Sleef_sqrtf16_intrin (reg512f);
+reg512f Sleef_sqrtf16_u05_intrin (reg512f);
+reg512f Sleef_sqrtf16_u35_intrin (reg512f);
+reg512f Sleef_hypotf16_u05_intrin (reg512f, reg512f);
+reg512f Sleef_hypotf16_u35_intrin (reg512f, reg512f);
+reg512f Sleef_fabsf16_intrin (reg512f);
+reg512f Sleef_copysignf16_intrin (reg512f, reg512f);
+reg512f Sleef_fmaxf16_intrin (reg512f, reg512f);
+reg512f Sleef_fminf16_intrin (reg512f, reg512f);
+reg512f Sleef_fdimf16_intrin (reg512f, reg512f);
+reg512f Sleef_truncf16_intrin (reg512f);
+reg512f Sleef_floorf16_intrin (reg512f);
+reg512f Sleef_ceilf16_intrin (reg512f);
+reg512f Sleef_roundf16_intrin (reg512f);
+reg512f Sleef_rintf16_intrin (reg512f);
+reg512f Sleef_nextafterf16_intrin (reg512f, reg512f);
+reg512f Sleef_frfrexpf16_intrin (reg512f);
+reg512i Sleef_expfrexpf16_intrin (reg512f);
+reg512f Sleef_fmodf16_intrin (reg512f, reg512f);
+Sleef_reg512f_2 Sleef_modff16_intrin (reg512f);
+reg512f Sleef_lgammaf16_u10_intrin (reg512f);
+Sleef_reg512f_2 Sleef_lgamma_rf16_u10_intrin (reg512f);
+reg512f Sleef_tgammaf16_u10_intrin (reg512f);
+reg512f Sleef_erff16_u10_intrin (reg512f);
+reg512f Sleef_erfcf16_u15_intrin (reg512f);
+reg512f Sleef_pownf16_u10_intrin (reg512f, reg512i);
+reg512f Sleef_powrf16_u10_intrin (reg512f, reg512f);
+
+#endif
+
+#ifdef __riscv
+
+#define SLEEF_VEC_256_AVAILABLE
+
+#ifndef Sleef_reg256d_2_DEFINED
+typedef struct
+{
+  reg256d x, y;
+} Sleef_reg256d_2;
+#define Sleef_reg256d_2_DEFINED
+#endif
+typedef Sleef_reg256d_2 Sleef_reg256d_2;
+
+reg256d Sleef_sind4_u35_intrin (reg256d);
+reg256d Sleef_cosd4_u35_intrin (reg256d);
+Sleef_reg256d_2 Sleef_sincosd4_u35_intrin (reg256d);
+reg256d Sleef_tand4_u35_intrin (reg256d);
+reg256d Sleef_asind4_u35_intrin (reg256d);
+reg256d Sleef_acosd4_u35_intrin (reg256d);
+reg256d Sleef_atand4_u35_intrin (reg256d);
+reg256d Sleef_atan2d4_u35_intrin (reg256d, reg256d);
+reg256d Sleef_logd4_u35_intrin (reg256d);
+reg256d Sleef_cbrtd4_u35_intrin (reg256d);
+reg256d Sleef_sind4_u10_intrin (reg256d);
+reg256d Sleef_cosd4_u10_intrin (reg256d);
+Sleef_reg256d_2 Sleef_sincosd4_u10_intrin (reg256d);
+reg256d Sleef_tand4_u10_intrin (reg256d);
+reg256d Sleef_asind4_u10_intrin (reg256d);
+reg256d Sleef_acosd4_u10_intrin (reg256d);
+reg256d Sleef_atand4_u10_intrin (reg256d);
+reg256d Sleef_atan2d4_u10_intrin (reg256d, reg256d);
+reg256d Sleef_logd4_u10_intrin (reg256d);
+reg256d Sleef_cbrtd4_u10_intrin (reg256d);
+reg256d Sleef_expd4_u10_intrin (reg256d);
+reg256d Sleef_powd4_u10_intrin (reg256d, reg256d);
+reg256d Sleef_sinhd4_u10_intrin (reg256d);
+reg256d Sleef_coshd4_u10_intrin (reg256d);
+reg256d Sleef_tanhd4_u10_intrin (reg256d);
+reg256d Sleef_asinhd4_u10_intrin (reg256d);
+reg256d Sleef_acoshd4_u10_intrin (reg256d);
+reg256d Sleef_atanhd4_u10_intrin (reg256d);
+reg256d Sleef_exp2d4_u10_intrin (reg256d);
+reg256d Sleef_exp10d4_u10_intrin (reg256d);
+reg256d Sleef_expm1d4_u10_intrin (reg256d);
+reg256d Sleef_log10d4_u10_intrin (reg256d);
+reg256d Sleef_log2d4_u10_intrin (reg256d);
+reg256d Sleef_log1pd4_u10_intrin (reg256d);
+Sleef_reg256d_2 Sleef_sincospid4_u05_intrin (reg256d);
+Sleef_reg256d_2 Sleef_sincospid4_u35_intrin (reg256d);
+reg256d Sleef_sinpid4_u05_intrin (reg256d);
+reg256d Sleef_cospid4_u05_intrin (reg256d);
+reg256d Sleef_ldexpd4_intrin (reg256d, reg128i);
+reg128i Sleef_ilogbd4_intrin (reg256d);
+reg256d Sleef_fmad4_intrin (reg256d, reg256d, reg256d);
+reg256d Sleef_sqrtd4_intrin (reg256d);
+reg256d Sleef_sqrtd4_u05_intrin (reg256d);
+reg256d Sleef_sqrtd4_u35_intrin (reg256d);
+reg256d Sleef_hypotd4_u05_intrin (reg256d, reg256d);
+reg256d Sleef_hypotd4_u35_intrin (reg256d, reg256d);
+reg256d Sleef_fabsd4_intrin (reg256d);
+reg256d Sleef_copysignd4_intrin (reg256d, reg256d);
+reg256d Sleef_fmaxd4_intrin (reg256d, reg256d);
+reg256d Sleef_fmind4_intrin (reg256d, reg256d);
+reg256d Sleef_fdimd4_intrin (reg256d, reg256d);
+reg256d Sleef_truncd4_intrin (reg256d);
+reg256d Sleef_floord4_intrin (reg256d);
+reg256d Sleef_ceild4_intrin (reg256d);
+reg256d Sleef_roundd4_intrin (reg256d);
+reg256d Sleef_rintd4_intrin (reg256d);
+reg256d Sleef_nextafterd4_intrin (reg256d, reg256d);
+reg256d Sleef_frfrexpd4_intrin (reg256d);
+reg256i Sleef_expfrexpd4_intrin (reg256d);
+reg256d Sleef_fmodd4_intrin (reg256d, reg256d);
+Sleef_reg256d_2 Sleef_modfd4_intrin (reg256d);
+reg256d Sleef_lgammad4_u10_intrin (reg256d);
+Sleef_reg256d_2 Sleef_lgamma_rd4_u10_intrin (reg256d);
+reg256d Sleef_tgammad4_u10_intrin (reg256d);
+reg256d Sleef_erfd4_u10_intrin (reg256d);
+reg256d Sleef_erfcd4_u15_intrin (reg256d);
+reg256d Sleef_pownd4_u10_intrin (reg256d, reg128i);
+reg256d Sleef_powrd4_u10_intrin (reg256d, reg256d);
+
+#ifndef Sleef_reg256f_2_DEFINED
+typedef struct
+{
+  reg256f x, y;
+} Sleef_reg256f_2;
+#define Sleef_reg256f_2_DEFINED
+#endif
+typedef Sleef_reg256f_2 Sleef_reg256f_2;
+
+reg256f Sleef_sinf8_u35_intrin (reg256f);
+reg256f Sleef_cosf8_u35_intrin (reg256f);
+Sleef_reg256f_2 Sleef_sincosf8_u35_intrin (reg256f);
+reg256f Sleef_tanf8_u35_intrin (reg256f);
+reg256f Sleef_asinf8_u35_intrin (reg256f);
+reg256f Sleef_acosf8_u35_intrin (reg256f);
+reg256f Sleef_atanf8_u35_intrin (reg256f);
+reg256f Sleef_atan2f8_u35_intrin (reg256f, reg256f);
+reg256f Sleef_logf8_u35_intrin (reg256f);
+reg256f Sleef_cbrtf8_u35_intrin (reg256f);
+reg256f Sleef_sinf8_u10_intrin (reg256f);
+reg256f Sleef_cosf8_u10_intrin (reg256f);
+Sleef_reg256f_2 Sleef_sincosf8_u10_intrin (reg256f);
+reg256f Sleef_tanf8_u10_intrin (reg256f);
+reg256f Sleef_asinf8_u10_intrin (reg256f);
+reg256f Sleef_acosf8_u10_intrin (reg256f);
+reg256f Sleef_atanf8_u10_intrin (reg256f);
+reg256f Sleef_atan2f8_u10_intrin (reg256f, reg256f);
+reg256f Sleef_logf8_u10_intrin (reg256f);
+reg256f Sleef_cbrtf8_u10_intrin (reg256f);
+reg256f Sleef_expf8_u10_intrin (reg256f);
+reg256f Sleef_powf8_u10_intrin (reg256f, reg256f);
+reg256f Sleef_sinhf8_u10_intrin (reg256f);
+reg256f Sleef_coshf8_u10_intrin (reg256f);
+reg256f Sleef_tanhf8_u10_intrin (reg256f);
+reg256f Sleef_asinhf8_u10_intrin (reg256f);
+reg256f Sleef_acoshf8_u10_intrin (reg256f);
+reg256f Sleef_atanhf8_u10_intrin (reg256f);
+reg256f Sleef_exp2f8_u10_intrin (reg256f);
+reg256f Sleef_exp10f8_u10_intrin (reg256f);
+reg256f Sleef_expm1f8_u10_intrin (reg256f);
+reg256f Sleef_log10f8_u10_intrin (reg256f);
+reg256f Sleef_log2f8_u10_intrin (reg256f);
+reg256f Sleef_log1pf8_u10_intrin (reg256f);
+Sleef_reg256f_2 Sleef_sincospif8_u05_intrin (reg256f);
+Sleef_reg256f_2 Sleef_sincospif8_u35_intrin (reg256f);
+reg256f Sleef_sinpif8_u05_intrin (reg256f);
+reg256f Sleef_cospif8_u05_intrin (reg256f);
+reg256f Sleef_ldexpf8_intrin (reg256f, reg256i);
+reg256i Sleef_ilogbf8_intrin (reg256f);
+reg256f Sleef_fmaf8_intrin (reg256f, reg256f, reg256f);
+reg256f Sleef_sqrtf8_intrin (reg256f);
+reg256f Sleef_sqrtf8_u05_intrin (reg256f);
+reg256f Sleef_sqrtf8_u35_intrin (reg256f);
+reg256f Sleef_hypotf8_u05_intrin (reg256f, reg256f);
+reg256f Sleef_hypotf8_u35_intrin (reg256f, reg256f);
+reg256f Sleef_fabsf8_intrin (reg256f);
+reg256f Sleef_copysignf8_intrin (reg256f, reg256f);
+reg256f Sleef_fmaxf8_intrin (reg256f, reg256f);
+reg256f Sleef_fminf8_intrin (reg256f, reg256f);
+reg256f Sleef_fdimf8_intrin (reg256f, reg256f);
+reg256f Sleef_truncf8_intrin (reg256f);
+reg256f Sleef_floorf8_intrin (reg256f);
+reg256f Sleef_ceilf8_intrin (reg256f);
+reg256f Sleef_roundf8_intrin (reg256f);
+reg256f Sleef_rintf8_intrin (reg256f);
+reg256f Sleef_nextafterf8_intrin (reg256f, reg256f);
+reg256f Sleef_frfrexpf8_intrin (reg256f);
+reg256i Sleef_expfrexpf8_intrin (reg256f);
+reg256f Sleef_fmodf8_intrin (reg256f, reg256f);
+Sleef_reg256f_2 Sleef_modff8_intrin (reg256f);
+reg256f Sleef_lgammaf8_u10_intrin (reg256f);
+Sleef_reg256f_2 Sleef_lgamma_rf8_u10_intrin (reg256f);
+reg256f Sleef_tgammaf8_u10_intrin (reg256f);
+reg256f Sleef_erff8_u10_intrin (reg256f);
+reg256f Sleef_erfcf8_u15_intrin (reg256f);
+
+reg256f Sleef_pownf8_u10_intrin (reg256f, reg256i);
+reg256f Sleef_powrf8_u10_intrin (reg256f, reg256f);
+
+#endif
+
+#ifdef __riscv
+
+#define SLEEF_VEC_128_AVAILABLE
+
+#ifndef Sleef_reg128d_2_DEFINED
+typedef struct
+{
+  reg128d x, y;
+} Sleef_reg128d_2;
+#define Sleef_reg128d_2_DEFINED
+#endif
+typedef Sleef_reg128d_2 Sleef_reg128d_2;
+
+reg128d Sleef_sind2_u35_intrin (reg128d);
+reg128d Sleef_cosd2_u35_intrin (reg128d);
+Sleef_reg128d_2 Sleef_sincosd2_u35_intrin (reg128d);
+reg128d Sleef_tand2_u35_intrin (reg128d);
+reg128d Sleef_asind2_u35_intrin (reg128d);
+reg128d Sleef_acosd2_u35_intrin (reg128d);
+reg128d Sleef_atand2_u35_intrin (reg128d);
+reg128d Sleef_atan2d2_u35_intrin (reg128d, reg128d);
+reg128d Sleef_logd2_u35_intrin (reg128d);
+reg128d Sleef_cbrtd2_u35_intrin (reg128d);
+reg128d Sleef_sind2_u10_intrin (reg128d);
+reg128d Sleef_cosd2_u10_intrin (reg128d);
+Sleef_reg128d_2 Sleef_sincosd2_u10_intrin (reg128d);
+reg128d Sleef_tand2_u10_intrin (reg128d);
+reg128d Sleef_asind2_u10_intrin (reg128d);
+reg128d Sleef_acosd2_u10_intrin (reg128d);
+reg128d Sleef_atand2_u10_intrin (reg128d);
+reg128d Sleef_atan2d2_u10_intrin (reg128d, reg128d);
+reg128d Sleef_logd2_u10_intrin (reg128d);
+reg128d Sleef_cbrtd2_u10_intrin (reg128d);
+reg128d Sleef_expd2_u10_intrin (reg128d);
+reg128d Sleef_powd2_u10_intrin (reg128d, reg128d);
+reg128d Sleef_sinhd2_u10_intrin (reg128d);
+reg128d Sleef_coshd2_u10_intrin (reg128d);
+reg128d Sleef_tanhd2_u10_intrin (reg128d);
+reg128d Sleef_asinhd2_u10_intrin (reg128d);
+reg128d Sleef_acoshd2_u10_intrin (reg128d);
+reg128d Sleef_atanhd2_u10_intrin (reg128d);
+reg128d Sleef_exp2d2_u10_intrin (reg128d);
+reg128d Sleef_exp10d2_u10_intrin (reg128d);
+reg128d Sleef_expm1d2_u10_intrin (reg128d);
+reg128d Sleef_log10d2_u10_intrin (reg128d);
+reg128d Sleef_log2d2_u10_intrin (reg128d);
+reg128d Sleef_log1pd2_u10_intrin (reg128d);
+Sleef_reg128d_2 Sleef_sincospid2_u05_intrin (reg128d);
+Sleef_reg128d_2 Sleef_sincospid2_u35_intrin (reg128d);
+reg128d Sleef_sinpid2_u05_intrin (reg128d);
+reg128d Sleef_cospid2_u05_intrin (reg128d);
+reg128d Sleef_ldexpd2_intrin (reg128d, reg128i);
+reg128i Sleef_ilogbd2_intrin (reg128d);
+reg128d Sleef_fmad2_intrin (reg128d, reg128d, reg128d);
+reg128d Sleef_sqrtd2_intrin (reg128d);
+reg128d Sleef_sqrtd2_u05_intrin (reg128d);
+reg128d Sleef_sqrtd2_u35_intrin (reg128d);
+reg128d Sleef_hypotd2_u05_intrin (reg128d, reg128d);
+reg128d Sleef_hypotd2_u35_intrin (reg128d, reg128d);
+reg128d Sleef_fabsd2_intrin (reg128d);
+reg128d Sleef_copysignd2_intrin (reg128d, reg128d);
+reg128d Sleef_fmaxd2_intrin (reg128d, reg128d);
+reg128d Sleef_fmind2_intrin (reg128d, reg128d);
+reg128d Sleef_fdimd2_intrin (reg128d, reg128d);
+reg128d Sleef_truncd2_intrin (reg128d);
+reg128d Sleef_floord2_intrin (reg128d);
+reg128d Sleef_ceild2_intrin (reg128d);
+reg128d Sleef_roundd2_intrin (reg128d);
+reg128d Sleef_rintd2_intrin (reg128d);
+reg128d Sleef_nextafterd2_intrin (reg128d, reg128d);
+reg128d Sleef_frfrexpd2_intrin (reg128d);
+reg128i Sleef_expfrexpd2_intrin (reg128d);
+reg128d Sleef_fmodd2_intrin (reg128d, reg128d);
+Sleef_reg128d_2 Sleef_modfd2_intrin (reg128d);
+reg128d Sleef_lgammad2_u10_intrin (reg128d);
+Sleef_reg128d_2 Sleef_lgamma_rd2_u10_intrin (reg128d);
+reg128d Sleef_tgammad2_u10_intrin (reg128d);
+reg128d Sleef_erfd2_u10_intrin (reg128d);
+reg128d Sleef_erfcd2_u15_intrin (reg128d);
+reg128d Sleef_pownd2_u10_intrin (reg128d, reg128i);
+reg128d Sleef_powrd2_u10_intrin (reg128d, reg128d);
+
+#ifndef Sleef_reg128f_2_DEFINED
+typedef struct
+{
+  reg128f x, y;
+} Sleef_reg128f_2;
+#define Sleef_reg128f_2_DEFINED
+#endif
+typedef Sleef_reg128f_2 Sleef_reg128f_2;
+
+reg128f Sleef_sinf4_u35_intrin (reg128f);
+reg128f Sleef_cosf4_u35_intrin (reg128f);
+Sleef_reg128f_2 Sleef_sincosf4_u35_intrin (reg128f);
+reg128f Sleef_tanf4_u35_intrin (reg128f);
+reg128f Sleef_asinf4_u35_intrin (reg128f);
+reg128f Sleef_acosf4_u35_intrin (reg128f);
+reg128f Sleef_atanf4_u35_intrin (reg128f);
+reg128f Sleef_atan2f4_u35_intrin (reg128f, reg128f);
+reg128f Sleef_logf4_u35_intrin (reg128f);
+reg128f Sleef_cbrtf4_u35_intrin (reg128f);
+reg128f Sleef_sinf4_u10_intrin (reg128f);
+reg128f Sleef_cosf4_u10_intrin (reg128f);
+Sleef_reg128f_2 Sleef_sincosf4_u10_intrin (reg128f);
+reg128f Sleef_tanf4_u10_intrin (reg128f);
+reg128f Sleef_asinf4_u10_intrin (reg128f);
+reg128f Sleef_acosf4_u10_intrin (reg128f);
+reg128f Sleef_atanf4_u10_intrin (reg128f);
+reg128f Sleef_atan2f4_u10_intrin (reg128f, reg128f);
+reg128f Sleef_logf4_u10_intrin (reg128f);
+reg128f Sleef_cbrtf4_u10_intrin (reg128f);
+reg128f Sleef_expf4_u10_intrin (reg128f);
+reg128f Sleef_powf4_u10_intrin (reg128f, reg128f);
+reg128f Sleef_sinhf4_u10_intrin (reg128f);
+reg128f Sleef_coshf4_u10_intrin (reg128f);
+reg128f Sleef_tanhf4_u10_intrin (reg128f);
+reg128f Sleef_asinhf4_u10_intrin (reg128f);
+reg128f Sleef_acoshf4_u10_intrin (reg128f);
+reg128f Sleef_atanhf4_u10_intrin (reg128f);
+reg128f Sleef_exp2f4_u10_intrin (reg128f);
+reg128f Sleef_exp10f4_u10_intrin (reg128f);
+reg128f Sleef_expm1f4_u10_intrin (reg128f);
+reg128f Sleef_log10f4_u10_intrin (reg128f);
+reg128f Sleef_log2f4_u10_intrin (reg128f);
+reg128f Sleef_log1pf4_u10_intrin (reg128f);
+Sleef_reg128f_2 Sleef_sincospif4_u05_intrin (reg128f);
+Sleef_reg128f_2 Sleef_sincospif4_u35_intrin (reg128f);
+reg128f Sleef_sinpif4_u05_intrin (reg128f);
+reg128f Sleef_cospif4_u05_intrin (reg128f);
+reg128f Sleef_ldexpf4_intrin (reg128f, reg128i);
+reg128i Sleef_ilogbf4_intrin (reg128f);
+reg128f Sleef_fmaf4_intrin (reg128f, reg128f, reg128f);
+reg128f Sleef_sqrtf4_intrin (reg128f);
+reg128f Sleef_sqrtf4_u05_intrin (reg128f);
+reg128f Sleef_sqrtf4_u35_intrin (reg128f);
+reg128f Sleef_hypotf4_u05_intrin (reg128f, reg128f);
+reg128f Sleef_hypotf4_u35_intrin (reg128f, reg128f);
+reg128f Sleef_fabsf4_intrin (reg128f);
+reg128f Sleef_copysignf4_intrin (reg128f, reg128f);
+reg128f Sleef_fmaxf4_intrin (reg128f, reg128f);
+reg128f Sleef_fminf4_intrin (reg128f, reg128f);
+reg128f Sleef_fdimf4_intrin (reg128f, reg128f);
+reg128f Sleef_truncf4_intrin (reg128f);
+reg128f Sleef_floorf4_intrin (reg128f);
+reg128f Sleef_ceilf4_intrin (reg128f);
+reg128f Sleef_roundf4_intrin (reg128f);
+reg128f Sleef_rintf4_intrin (reg128f);
+reg128f Sleef_nextafterf4_intrin (reg128f, reg128f);
+reg128f Sleef_frfrexpf4_intrin (reg128f);
+reg128i Sleef_expfrexpf4_intrin (reg128f);
+reg128f Sleef_fmodf4_intrin (reg128f, reg128f);
+Sleef_reg128f_2 Sleef_modff4_intrin (reg128f);
+reg128f Sleef_lgammaf4_u10_intrin (reg128f);
+Sleef_reg128f_2 Sleef_lgamma_rf4_u10_intrin (reg128f);
+reg128f Sleef_tgammaf4_u10_intrin (reg128f);
+reg128f Sleef_erff4_u10_intrin (reg128f);
+reg128f Sleef_erfcf4_u15_intrin (reg128f);
+reg128f Sleef_pownf4_u10_intrin (reg128f, reg128i);
+reg128f Sleef_powrf4_u10_intrin (reg128f, reg128f);
+
+#endif
 
 #endif // __SLEEF_H__
+

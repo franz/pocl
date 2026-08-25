@@ -550,8 +550,11 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
                           "${VARIANT}" BC_FILE_LIST ${EXTRA_FLAGS})
   endif()
 
+  # other Archs use clang extended vectors
+  #if (X86 OR ARM)
   compile_sleef_c_to_bc("c" "sleef/libm/sleef_glue_auto.c"
-                        "${VARIANT}" BC_FILE_LIST "-include" "${SLEEF_CONFIG}")
+                      "${VARIANT}" BC_FILE_LIST "-include" "${SLEEF_CONFIG}")
+  #endif()
 
   file(READ "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/test.c" TEST_SRC)
   file(READ "${CMAKE_SOURCE_DIR}/lib/kernel/sleef/fma_test.c" FMA_TEST_SRC)
@@ -562,13 +565,13 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
   if(HOST_CPU_ENABLE_CL_KHR_FP64)
     set(STR "#define SLEEF_DOUBLE_AVAILABLE\n")
     file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
-  endif()
-  # current SLEEF code does not have code for
-  # ARM32 NEON double vectors (if they even exist)
-  # TODO check properly!
-  if(NOT ARM32)
-    set(STR "#define SLEEF_DOUBLE_VEC_AVAILABLE\n")
-    file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
+    # current SLEEF code does not have code for
+    # ARM32 NEON double vectors (if they even exist)
+    # TODO check properly!
+    if(NOT ARM32)
+      set(STR "#define SLEEF_DOUBLE_VEC_AVAILABLE\n")
+      file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
+    endif()
   endif()
   # this is workaround for an inconsistency problem in SLEEF.
   # certain functions (ldexp, ilogb, pown) with double2 type argument
@@ -612,7 +615,7 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
     if(${RES} EQUAL "0")
       compile_sleef_c_to_bc("v${VECSIZE}" "sleef/libm/sleefsimdsp.c"
                             "${VARIANT}" BC_FILE_LIST ${EXTRA_FLAGS})
-      if(NOT ARM32)
+      if(HOST_CPU_ENABLE_CL_KHR_FP64 AND (NOT ARM32))
       compile_sleef_c_to_bc("v${VECSIZE}" "sleef/libm/sleefsimddp.c"
                             "${VARIANT}" BC_FILE_LIST ${EXTRA_FLAGS})
       endif()
@@ -639,7 +642,9 @@ function(compile_sleef VARIANT SLEEF_CONFIG SLEEF_CONFIG_NEW SLEEF_BC)
     if(${RES} EQUAL "0")
       unset(STR)
       set(STR "#define HAVE_FMA32_${VECSIZE}\n")
-      set(STR "${STR}#define HAVE_FMA64_${VECSIZE}\n")
+      if(HOST_CPU_ENABLE_CL_KHR_FP64)
+        set(STR "${STR}#define HAVE_FMA64_${VECSIZE}\n")
+      endif()
       file(APPEND "${SLEEF_CONFIG_NEW}" "${STR}")
       message(STATUS "${VARIANT} SLEEF: ${VECSIZE}bit hardware FMA available.")
     endif()
