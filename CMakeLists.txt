@@ -1801,8 +1801,6 @@ else()
   set(HOST_DEVICE_CL_VERSION_MINOR 0)
 endif()
 
-# Probe native host CPU support for cl_khr_kernel_clock
-include(CheckHostCpuKernelClock)
 
 # Host CPU device: list of extensions that are always enabled, for both OpenCL 1.2 and 3.0
 # NOTE: update README.md when changing the list

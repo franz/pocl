@@ -195,3 +195,55 @@ if(NOT DEFINED HOST_CPU_SUPPORTS_DOUBLE)
     option(HOST_CPU_SUPPORTS_DOUBLE "Enable FP64 support for Host CPU device" ON)
   endif()
 endif()
+
+####################################################################
+
+set(HOST_CPU_ENABLE_CL_KHR_KERNEL_CLOCK 0)
+
+# Probe native host CPU support for cl_khr_kernel_clock
+# __builtin_readcyclecounter() is only auto-enabled for native x86 host builds.
+# On other architectures (ARM, RISCV) the builtin may compile but still trap at runtime;
+# on ARM and RISCV, __builtin_readsteadycounter should work without trapping.
+if(ENABLE_LLVM AND (NOT CMAKE_CROSSCOMPILING) AND (X86 OR ARM OR RISCV))
+
+  if(X86)
+    set(SRC_INCLUDE [=[
+    #if !__has_builtin(__builtin_readcyclecounter)
+      #error "__builtin_readcyclecounter not available"
+    #endif
+    ]=])
+    set(HOST_KERNEL_CLOCK_TEST_SRC [=[
+    unsigned long long t0 = __builtin_readcyclecounter();
+    for (volatile int i = 0; i < 1000; ++i) {
+    }
+    unsigned long long t1 = __builtin_readcyclecounter();
+    return (t0 > 0 && t1 > t0) ? 0 : 1;
+    ]=])
+  else()
+    set(SRC_INCLUDE [=[
+    #if !__has_builtin(__builtin_readsteadycounter)
+      #error "__builtin_readsteadycounter not available"
+    #endif
+    ]=])
+    set(HOST_KERNEL_CLOCK_TEST_SRC [=[
+    unsigned long long t0 = __builtin_readsteadycounter();
+    for (volatile int i = 0; i < 1000; ++i) {
+    }
+    unsigned long long t1 = __builtin_readsteadycounter();
+    return (t0 > 0 && t1 > t0) ? 0 : 1;
+    ]=])
+  endif()
+
+  separate_arguments(RWDI_OPTS UNIX_COMMAND "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+  custom_try_compile_clang("${SRC_INCLUDE}"
+    "${HOST_KERNEL_CLOCK_TEST_SRC}"
+    HOST_KERNEL_CLOCK_TEST_COMPILE_RES --target=${LLC_TRIPLE} ${CLANG_MARCH_FLAG}${SELECTED_HOST_CPU} ${RWDI_OPTS})
+
+  if(HOST_KERNEL_CLOCK_TEST_COMPILE_RES EQUAL 0)
+    set(HOST_CPU_ENABLE_CL_KHR_KERNEL_CLOCK 1)
+  endif()
+
+endif()
+
+message(STATUS
+        "HOST_CPU_ENABLE_CL_KHR_KERNEL_CLOCK: ${HOST_CPU_ENABLE_CL_KHR_KERNEL_CLOCK}")
